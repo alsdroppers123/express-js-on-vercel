@@ -74,13 +74,67 @@
   <div class="vignette"></div>
 
 <script>
+  // Global Airport Database for zero-latency & standalone local wallpaper fallback
+  const BUILTIN_AIRPORTS = [
+    { iata: 'LHR', icao: 'EGLL', name: 'London Heathrow', lat: 51.4700, lon: -0.4543 },
+    { iata: 'LGW', icao: 'EGKK', name: 'London Gatwick', lat: 51.1537, lon: -0.1821 },
+    { iata: 'LCY', icao: 'EGLC', name: 'London City', lat: 51.5048, lon: 0.0495 },
+    { iata: 'STN', icao: 'EGSS', name: 'London Stansted', lat: 51.8860, lon: 0.2389 },
+    { iata: 'LTN', icao: 'EGGW', name: 'London Luton', lat: 51.8747, lon: -0.3683 },
+    { iata: 'JFK', icao: 'KJFK', name: 'John F Kennedy NY', lat: 40.6413, lon: -73.7781 },
+    { iata: 'LGA', icao: 'KLGA', name: 'LaGuardia NY', lat: 40.7769, lon: -73.8740 },
+    { iata: 'EWR', icao: 'KEWR', name: 'Newark Liberty', lat: 40.6895, lon: -74.1745 },
+    { iata: 'LAX', icao: 'KLAX', name: 'Los Angeles Intl', lat: 33.9416, lon: -118.4085 },
+    { iata: 'SFO', icao: 'KSFO', name: 'San Francisco Intl', lat: 37.6213, lon: -122.3790 },
+    { iata: 'ORD', icao: 'KORD', name: 'Chicago O\'Hare', lat: 41.9742, lon: -87.9073 },
+    { iata: 'ATL', icao: 'KATL', name: 'Atlanta Hartsfield', lat: 33.6407, lon: -84.4277 },
+    { iata: 'DFW', icao: 'KDFW', name: 'Dallas/Fort Worth', lat: 32.8998, lon: -97.0403 },
+    { iata: 'MIA', icao: 'KMIA', name: 'Miami Intl', lat: 25.7959, lon: -80.2870 },
+    { iata: 'SEA', icao: 'KSEA', name: 'Seattle-Tacoma', lat: 47.4502, lon: -122.3088 },
+    { iata: 'CDG', icao: 'LFPG', name: 'Paris Charles de Gaulle', lat: 49.0097, lon: 2.5479 },
+    { iata: 'ORY', icao: 'LFPO', name: 'Paris Orly', lat: 48.7262, lon: 2.3652 },
+    { iata: 'FRA', icao: 'EDDF', name: 'Frankfurt Main', lat: 50.0379, lon: 8.5622 },
+    { iata: 'MUC', icao: 'EDDM', name: 'Munich Intl', lat: 48.3537, lon: 11.7750 },
+    { iata: 'AMS', icao: 'EHAM', name: 'Amsterdam Schiphol', lat: 52.3105, lon: 4.7683 },
+    { iata: 'MAD', icao: 'LEMD', name: 'Madrid Barajas', lat: 40.4839, lon: -3.5680 },
+    { iata: 'BCN', icao: 'LEBL', name: 'Barcelona El Prat', lat: 41.2974, lon: 2.0833 },
+    { iata: 'FCO', icao: 'LIRF', name: 'Rome Fiumicino', lat: 41.8003, lon: 12.2389 },
+    { iata: 'ZRH', icao: 'LSZH', name: 'Zurich Intl', lat: 47.4582, lon: 8.5555 },
+    { iata: 'VIE', icao: 'LOWW', name: 'Vienna Schwechat', lat: 48.1103, lon: 16.5697 },
+    { iata: 'HND', icao: 'RJTT', name: 'Tokyo Haneda', lat: 35.5494, lon: 139.7798 },
+    { iata: 'NRT', icao: 'RJAA', name: 'Tokyo Narita', lat: 35.7720, lon: 140.3929 },
+    { iata: 'KIX', icao: 'RJBB', name: 'Osaka Kansai', lat: 34.4320, lon: 135.2304 },
+    { iata: 'ICN', icao: 'RKSI', name: 'Seoul Incheon', lat: 37.4602, lon: 126.4407 },
+    { iata: 'PEK', icao: 'ZBAA', name: 'Beijing Capital', lat: 40.0799, lon: 116.6031 },
+    { iata: 'PKX', icao: 'ZBAD', name: 'Beijing Daxing', lat: 39.5098, lon: 116.4105 },
+    { iata: 'PVG', icao: 'ZSPD', name: 'Shanghai Pudong', lat: 31.1443, lon: 121.8083 },
+    { iata: 'HKG', icao: 'VHHH', name: 'Hong Kong Intl', lat: 22.3080, lon: 113.9185 },
+    { iata: 'SIN', icao: 'WSSS', name: 'Singapore Changi', lat: 1.3644, lon: 103.9915 },
+    { iata: 'BKK', icao: 'VTBS', name: 'Bangkok Suvarnabhumi', lat: 13.6900, lon: 100.7501 },
+    { iata: 'KUL', icao: 'WMKK', name: 'Kuala Lumpur Intl', lat: 2.7456, lon: 101.7099 },
+    { iata: 'KTM', icao: 'VNKT', name: 'Kathmandu Tribhuvan', lat: 27.6966, lon: 85.3591 },
+    { iata: 'PKR', icao: 'VNPK', name: 'Pokhara Intl', lat: 28.1833, lon: 83.9889 },
+    { iata: 'DEL', icao: 'VIDP', name: 'Delhi Indira Gandhi', lat: 28.5562, lon: 77.1000 },
+    { iata: 'BOM', icao: 'VABB', name: 'Mumbai Chhatrapati', lat: 19.0896, lon: 72.8656 },
+    { iata: 'BLR', icao: 'VOBL', name: 'Bengaluru Kempegowda', lat: 13.1986, lon: 77.7066 },
+    { iata: 'DXB', icao: 'OMDB', name: 'Dubai Intl', lat: 25.2532, lon: 55.3657 },
+    { iata: 'DOH', icao: 'OTHH', name: 'Doha Hamad', lat: 25.2731, lon: 51.6081 },
+    { iata: 'IST', icao: 'LTFM', name: 'Istanbul Airport', lat: 41.2753, lon: 28.7519 },
+    { iata: 'SYD', icao: 'YSSY', name: 'Sydney Kingsford Smith', lat: -33.9399, lon: 151.1753 },
+    { iata: 'MEL', icao: 'YMML', name: 'Melbourne Tullamarine', lat: -37.6690, lon: 144.8410 },
+    { iata: 'GRU', icao: 'SBGR', name: 'Sao Paulo Guarulhos', lat: -23.4356, lon: -46.4731 },
+    { iata: 'YYZ', icao: 'CYYZ', name: 'Toronto Pearson', lat: 43.6777, lon: -79.6248 }
+  ];
+
   // Wallpaper Configuration State
   const config = {
-    lat: 51.51477,
-    lon: -0.12842,
-    radiusKm: 50,
+    lat: 27.7172,
+    lon: 85.3240,
+    radiusKm: 80,
     color: '#00FF66',
-    showTrails: true
+    showTrails: true,
+    showAirports: true,
+    sweepSpeed: 0.016
   };
 
   const canvas = document.getElementById('radar-canvas');
@@ -91,6 +145,7 @@
   let centerX = 0;
   let centerY = 0;
   let maxRadiusPixel = 0;
+  let isPaused = false;
 
   // Aircraft Map for Smooth Interpolation
   const trackedAircraft = new Map();
@@ -98,15 +153,21 @@
 
   // Sweep Animation Variables
   let sweepAngle = 0;
-  const SWEEP_SPEED = 0.016; // smooth rotation speed
   let isFetching = false;
   let isFetchingAirports = false;
 
   // Theme apply
   function applyTheme(hexColor) {
     if (!hexColor) return;
-    config.color = hexColor;
-    document.documentElement.style.setProperty('--theme-color', hexColor);
+    // Handle Lively Wallpaper color formatting if passed as JSON/RGB
+    if (typeof hexColor === 'string' && hexColor.startsWith('#')) {
+      config.color = hexColor;
+    } else if (typeof hexColor === 'string' && hexColor.startsWith('rgb')) {
+      config.color = hexColor;
+    } else {
+      config.color = String(hexColor);
+    }
+    document.documentElement.style.setProperty('--theme-color', config.color);
   }
 
   // Handle Canvas Resize with pixel-perfect aspect ratio
@@ -126,7 +187,6 @@
 
     centerX = displayWidth / 2;
     centerY = displayHeight / 2;
-    // Keep perfectly circular radar scope based on the shortest viewport dimension
     maxRadiusPixel = Math.min(displayWidth, displayHeight) * 0.44;
 
     // Recalculate target positions
@@ -174,27 +234,71 @@
     return (start + diff * amt + 360) % 360;
   }
 
-  // Fast Backend Polling
+  // Universal ADS-B Aircraft Fetching (Backend API + Direct Public CORS Fallback for Standalone Lively Wallpaper)
   async function fetchAircraft() {
-    if (isFetching) return;
+    if (isFetching || isPaused) return;
     isFetching = true;
 
     try {
-      const response = await fetch(`/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
-        headers: { 'Accept': 'application/json' }
-      });
+      let planeList = null;
+      const radiusNm = Math.max(5, Math.round(config.radiusKm * 0.539957));
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // Attempt 1: Try local server route (/api/planes)
+      try {
+        const response = await fetch(`/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.ac)) {
+            planeList = data.ac;
+          }
+        }
+      } catch (e) {
+        // Local server not available (e.g. opened locally as a file in Lively Wallpaper)
+      }
 
-      const data = await response.json();
+      // Attempt 2: Direct Fallback to Public ADS-B APIs if backend is unavailable
+      if (!planeList) {
+        const publicEndpoints = [
+          `https://api.airplanes.live/v2/point/${config.lat}/${config.lon}/${radiusNm}`,
+          `https://api.adsb.lol/v2/lat/${config.lat}/lon/${config.lon}/dist/${radiusNm}`
+        ];
 
-      if (data && Array.isArray(data.ac)) {
+        for (const ep of publicEndpoints) {
+          try {
+            const resp = await fetch(ep, { headers: { 'Accept': 'application/json' } });
+            if (resp.ok) {
+              const d = await resp.json();
+              const raw = d.ac || d.aircraft || [];
+              if (Array.isArray(raw)) {
+                planeList = raw.map((p, idx) => ({
+                  hex: (p.hex || p.hexid || `P-${idx}`).trim().toUpperCase(),
+                  callsign: (p.flight || p.r || p.call || p.hex || 'UNK').trim().toUpperCase(),
+                  model: (p.t || p.desc || p.type || 'AC').trim().toUpperCase(),
+                  latitude: typeof p.lat === 'number' ? p.lat : parseFloat(p.lat),
+                  longitude: typeof p.lon === 'number' ? p.lon : parseFloat(p.lon),
+                  altitudeFt: p.alt_baro === 'ground' ? 0 : (p.alt_baro || p.alt_geom || p.alt || 0),
+                  speedKts: Math.round(p.gs || p.speed || 0),
+                  heading: Math.round(p.track || p.true_heading || 0),
+                  squawk: p.squawk ? String(p.squawk) : null,
+                  verticalRate: p.baro_rate || p.geom_rate || 0
+                })).filter(p => p.latitude != null && !isNaN(p.latitude) && p.longitude != null && !isNaN(p.longitude));
+                break;
+              }
+            }
+          } catch (err) {
+            // Continue fallback
+          }
+        }
+      }
+
+      if (planeList && Array.isArray(planeList)) {
         const now = Date.now();
 
-        data.ac.forEach(plane => {
+        planeList.forEach(plane => {
           if (plane.latitude == null || plane.longitude == null) return;
           const hex = plane.hex || plane.callsign;
-
           const targetPos = gpsToCanvas(plane.latitude, plane.longitude);
 
           if (trackedAircraft.has(hex)) {
@@ -214,7 +318,6 @@
             existing.latitude = plane.latitude;
             existing.longitude = plane.longitude;
 
-            // Add history breadcrumb if plane moved
             const lastHist = existing.history[existing.history.length - 1];
             if (!lastHist || Math.hypot(lastHist.x - targetPos.x, lastHist.y - targetPos.y) > 3) {
               existing.history.push({ x: targetPos.x, y: targetPos.y, time: now });
@@ -260,21 +363,42 @@
     }
   }
 
-  // Fetch Nearby Airports
+  // Universal Nearby Airports Fetching (API + Standalone Embedded Fallback)
   async function fetchAirports() {
-    if (isFetchingAirports) return;
+    if (isFetchingAirports || !config.showAirports) return;
     isFetchingAirports = true;
 
     try {
-      const response = await fetch(`/api/airports?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
-        headers: { 'Accept': 'application/json' }
-      });
+      let rawAirports = null;
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // Attempt 1: Fetch from local server
+      try {
+        const response = await fetch(`/api/airports?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.airports)) {
+            rawAirports = data.airports;
+          }
+        }
+      } catch (e) {
+        // Backend not available
+      }
 
-      const data = await response.json();
-      if (data && Array.isArray(data.airports)) {
-        nearbyAirports = data.airports.map(apt => {
+      // Attempt 2: Filter from built-in global dataset
+      if (!rawAirports) {
+        const latRad = (config.lat * Math.PI) / 180;
+        rawAirports = BUILTIN_AIRPORTS.map(apt => {
+          const deltaY_km = (apt.lat - config.lat) * 111.132;
+          const deltaX_km = (apt.lon - config.lon) * (111.320 * Math.cos(latRad));
+          const distKm = Math.hypot(deltaX_km, deltaY_km);
+          return { ...apt, distKm };
+        }).filter(a => a.distKm <= config.radiusKm * 1.05);
+      }
+
+      if (rawAirports && Array.isArray(rawAirports)) {
+        nearbyAirports = rawAirports.map(apt => {
           const pos = gpsToCanvas(apt.lat, apt.lon);
           return {
             ...apt,
@@ -294,7 +418,7 @@
 
   // Draw Airport Symbols on Radar
   function drawAirports() {
-    if (!nearbyAirports || nearbyAirports.length === 0) return;
+    if (!config.showAirports || !nearbyAirports || nearbyAirports.length === 0) return;
 
     nearbyAirports.forEach(airport => {
       const pos = gpsToCanvas(airport.lat, airport.lon);
@@ -303,7 +427,6 @@
       const pixelDist = Math.hypot(dx, dy);
 
       if (pixelDist <= maxRadiusPixel + 10) {
-        // Phosphor sweep illumination for airport beacon
         const aptAngle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
         let angleDiff = sweepAngle - aptAngle;
         if (angleDiff < 0) angleDiff += Math.PI * 2;
@@ -318,22 +441,19 @@
         ctx.translate(pos.x, pos.y);
         ctx.globalAlpha = airport.blipIntensity;
 
-        // 1. Dual-Ring Airport Symbol with 4-way Cross Ticks
+        // Dual-Ring Airport Symbol with Cross Ticks
         ctx.strokeStyle = config.color;
         ctx.lineWidth = 1.2;
 
-        // Outer Ring
         ctx.beginPath();
         ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Inner Circle
         ctx.beginPath();
         ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
         ctx.fillStyle = config.color;
         ctx.fill();
 
-        // Cross Ticks (N, S, E, W marks on the airport symbol)
         ctx.beginPath();
         ctx.moveTo(0, -9.5); ctx.lineTo(0, -6.5);
         ctx.moveTo(0, 6.5);  ctx.lineTo(0, 9.5);
@@ -341,18 +461,16 @@
         ctx.moveTo(6.5, 0);  ctx.lineTo(9.5, 0);
         ctx.stroke();
 
-        // 2. Airport Label
+        // Airport Label
         const labelX = 12;
         const labelY = -3;
         ctx.textAlign = 'left';
 
-        // Primary ICAO / IATA Code & Name
         ctx.font = 'bold 9.5px monospace';
         ctx.fillStyle = config.color;
         ctx.globalAlpha = Math.min(0.95, airport.blipIntensity);
         ctx.fillText(`⊘ [${airport.iata}] ${airport.name}`, labelX, labelY);
 
-        // Subtitle ICAO & Distance
         ctx.font = '8px monospace';
         ctx.globalAlpha = Math.min(0.70, airport.blipIntensity);
         ctx.fillText(`${airport.icao} • ${airport.distKm.toFixed(1)}KM`, labelX, labelY + 10);
@@ -376,7 +494,6 @@
       ctx.globalAlpha = (i === 4) ? 0.45 : 0.18;
       ctx.stroke();
 
-      // Range Labels on vertical axis
       const ringKm = (config.radiusKm * (i / 4)).toFixed(0);
       ctx.fillStyle = config.color;
       ctx.globalAlpha = 0.55;
@@ -420,11 +537,17 @@
     ctx.fillText('E', centerX + maxRadiusPixel + 15, centerY);
     ctx.fillText('W', centerX - maxRadiusPixel - 15, centerY);
 
-    // Center Origin Point
+    // Center Origin Point & Target Coordinates HUD
     ctx.globalAlpha = 0.75;
     ctx.beginPath();
     ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
     ctx.fill();
+
+    // Bottom telemetry overlay
+    ctx.textAlign = 'center';
+    ctx.font = '9px monospace';
+    ctx.globalAlpha = 0.45;
+    ctx.fillText(`CENTER: ${config.lat.toFixed(4)}°N, ${config.lon.toFixed(4)}°E | RADIUS: ${config.radiusKm}KM | CONTACTS: ${trackedAircraft.size}`, centerX, displayHeight - 16);
 
     ctx.restore();
   }
@@ -433,10 +556,10 @@
   function drawSweep() {
     ctx.save();
 
-    sweepAngle += SWEEP_SPEED;
+    sweepAngle += config.sweepSpeed;
     if (sweepAngle >= Math.PI * 2) sweepAngle -= Math.PI * 2;
 
-    const trailSpan = 0.48; // ~28 degrees phosphor fan
+    const trailSpan = 0.48;
     const sweepSegments = 20;
 
     for (let i = 0; i < sweepSegments; i++) {
@@ -474,11 +597,9 @@
     ctx.save();
     ctx.translate(x, y);
 
-    // Rotate for Plane Direction
     ctx.rotate((heading * Math.PI) / 180);
     ctx.fillStyle = config.color;
 
-    // Aircraft Silhouette
     ctx.beginPath();
     ctx.moveTo(0, -9);
     ctx.lineTo(1.2, -3);
@@ -502,12 +623,11 @@
     ctx.restore();
   }
 
-  // Draw Aircraft on Canvas with model, flight number, altitude, and speed labels
+  // Draw Aircraft on Canvas with live data tags
   function drawAircraft() {
     const LERP_FACTOR = 0.08;
 
     trackedAircraft.forEach((plane) => {
-      // Smooth interpolation
       plane.currX = lerp(plane.currX, plane.targetX, LERP_FACTOR);
       plane.currY = lerp(plane.currY, plane.targetY, LERP_FACTOR);
       plane.currHeading = lerpAngle(plane.currHeading, plane.targetHeading, LERP_FACTOR);
@@ -517,7 +637,6 @@
       const pixelDist = Math.hypot(dx, dy);
 
       if (pixelDist <= maxRadiusPixel + 10) {
-        // Phosphor sweep illumination
         const planeAngle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
         let angleDiff = sweepAngle - planeAngle;
         if (angleDiff < 0) angleDiff += Math.PI * 2;
@@ -576,16 +695,18 @@
 
   // 60FPS Render Loop
   function render() {
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
+    if (!isPaused) {
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-    // Deep Radar Dark Canvas
-    ctx.fillStyle = '#030605';
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
+      // Deep Radar Dark Canvas
+      ctx.fillStyle = '#030605';
+      ctx.fillRect(0, 0, displayWidth, displayHeight);
 
-    drawRadarGrid();
-    drawAirports();
-    drawSweep();
-    drawAircraft();
+      drawRadarGrid();
+      drawAirports();
+      drawSweep();
+      drawAircraft();
+    }
 
     requestAnimationFrame(render);
   }
@@ -596,7 +717,7 @@
   setInterval(fetchAircraft, 2500);
   requestAnimationFrame(render);
 
-  // Lively Wallpaper Native Property Listener
+  // Lively Wallpaper Native Property Listener & Customization
   window.livelyPropertyListener = function(name, val) {
     switch (name) {
       case "lat": 
@@ -611,10 +732,26 @@
       case "themeColor": 
         applyTheme(val); 
         break;
+      case "showTrails":
+        config.showTrails = Boolean(val);
+        break;
+      case "showAirports":
+        config.showAirports = Boolean(val);
+        break;
+      case "sweepSpeed":
+        config.sweepSpeed = (parseFloat(val) || 16) / 1000;
+        break;
     }
     resize();
     fetchAirports();
     fetchAircraft();
+  };
+
+  // Lively Wallpaper Playback State (Pause rendering when fullscreen apps run to save GPU/Battery)
+  window.livelyWallpaperPlaybackChanged = function(data) {
+    if (data && typeof data.isPaused === 'boolean') {
+      isPaused = data.isPaused;
+    }
   };
 </script>
 

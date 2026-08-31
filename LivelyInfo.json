@@ -1,0 +1,14 @@
+{
+  "AppVersion": "2.0.0.0",
+  "Title": "Airspace Radar",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Real-time radar visualization of airspace aircraft using live ADS-B flight tracking data.",
+  "Author": "Airspace Radar",
+  "License": "MIT",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false
+}
