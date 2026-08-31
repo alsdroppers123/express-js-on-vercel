@@ -5,8 +5,8 @@
   <title>Airspace Radar</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
-    canvas { display: block; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000000; font-family: monospace; }
+    canvas { display: block; width: 100vw; height: 100vh; }
   </style>
 </head>
 <body>
@@ -21,16 +21,16 @@
   const canvas = document.getElementById('radar');
   const ctx = canvas.getContext('2d');
 
-  let width, height, centerX, centerY, maxRadiusPixel;
+  let width = 0, height = 0, centerX = 0, centerY = 0, maxRadiusPixel = 0;
   let aircraftList = [];
   let sweepAngle = 0;
 
   function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+    width = canvas.width = window.innerWidth || document.documentElement.clientWidth || 800;
+    height = canvas.height = window.innerHeight || document.documentElement.clientHeight || 600;
     centerX = width / 2;
     centerY = height / 2;
-    maxRadiusPixel = Math.min(width, height) * 0.42;
+    maxRadiusPixel = Math.min(width, height) * 0.40;
   }
   window.addEventListener('resize', resize);
   resize();
@@ -43,7 +43,7 @@
     const deltaY_km = (lat - HOME_LAT) * kmPerDegreeLat;
     const deltaX_km = (lon - HOME_LON) * kmPerDegreeLon;
 
-    const scale = maxRadiusPixel / RADIUS_KM;
+    const scale = maxRadiusPixel / (RADIUS_KM || 1);
     return {
       x: centerX + (deltaX_km * scale),
       y: centerY - (deltaY_km * scale),
@@ -57,7 +57,7 @@
       if (!response.ok) return;
       const data = await response.json();
 
-      if (data && data.ac) {
+      if (data && Array.isArray(data.ac)) {
         aircraftList = data.ac.map(plane => ({
           callsign: (plane.flight || plane.r || "UNK").trim(),
           model: (plane.t || "AIRCRAFT").trim().toUpperCase(),
@@ -85,13 +85,12 @@
   }
 
   function drawAircraftShape(ctx, category) {
-    ctx.beginPath();
     ctx.strokeStyle = '#FFFFFF';
     ctx.fillStyle = '#FFFFFF';
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.5;
 
     if (category === 'WIDEBODY') {
-      // Widebody Jet: Swept wings + wide fuselage
+      ctx.beginPath();
       ctx.moveTo(0, -14); ctx.lineTo(2, -8); ctx.lineTo(2, -2);
       ctx.lineTo(14, 4); ctx.lineTo(14, 7); ctx.lineTo(2, 4);
       ctx.lineTo(2, 11); ctx.lineTo(6, 14); ctx.lineTo(6, 16);
@@ -101,9 +100,8 @@
       ctx.closePath();
       ctx.fill();
     } else if (category === 'PROP') {
-      // Turboprop: Straight wings + propeller disc
-      ctx.arc(0, -10, 5, Math.PI, 0); // Propeller disc line
-      ctx.stroke(); ctx.beginPath();
+      ctx.beginPath();
+      ctx.arc(0, -10, 5, Math.PI, 0); ctx.stroke(); ctx.beginPath();
       ctx.moveTo(0, -10); ctx.lineTo(1.5, -4); ctx.lineTo(12, -2);
       ctx.lineTo(12, 1); ctx.lineTo(1.5, 0); ctx.lineTo(1.5, 9);
       ctx.lineTo(5, 12); ctx.lineTo(5, 14); ctx.lineTo(0, 12.5);
@@ -112,14 +110,11 @@
       ctx.lineTo(-1.5, -4); ctx.closePath();
       ctx.fill();
     } else if (category === 'HELI') {
-      // Helicopter: Rotor circle + thin tail boom
       ctx.beginPath();
-      ctx.arc(0, -2, 9, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath();
-      ctx.rect(-2, -6, 4, 10); ctx.lineTo(0, 15); ctx.lineTo(3, 15);
-      ctx.fill();
+      ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillRect(-2, -6, 4, 12);
     } else {
-      // Standard Jet / Narrowbody (A320/B738)
+      ctx.beginPath();
       ctx.moveTo(0, -12); ctx.lineTo(1.5, -5); ctx.lineTo(10, 2);
       ctx.lineTo(10, 4.5); ctx.lineTo(1.5, 2); ctx.lineTo(1.5, 9);
       ctx.lineTo(4.5, 12); ctx.lineTo(4.5, 13.5); ctx.lineTo(0, 12);
@@ -131,7 +126,9 @@
   }
 
   function drawRadarGrid() {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    if (maxRadiusPixel <= 0) return;
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 1;
 
     for (let i = 1; i <= 4; i++) {
@@ -140,4 +137,94 @@
       ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = '
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '10px monospace';
+      ctx.fillText(`${(RADIUS_KM * (i / 4)).toFixed(0)} KM`, centerX + 6, centerY - r + 12);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(centerX - maxRadiusPixel, centerY); ctx.lineTo(centerX + maxRadiusPixel, centerY);
+    ctx.moveTo(centerX, centerY - maxRadiusPixel); ctx.lineTo(centerX, centerY + maxRadiusPixel);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '10px monospace';
+    ctx.fillText('HOME RADAR', centerX + 6, centerY + 14);
+
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText('N', centerX - 4, centerY - maxRadiusPixel - 8);
+    ctx.fillText('S', centerX - 4, centerY + maxRadiusPixel + 16);
+    ctx.fillText('E', centerX + maxRadiusPixel + 8, centerY + 4);
+    ctx.fillText('W', centerX - maxRadiusPixel - 20, centerY + 4);
+  }
+
+  function drawSweep() {
+    if (maxRadiusPixel <= 0) return;
+
+    sweepAngle += 0.015;
+    if (sweepAngle >= Math.PI * 2) sweepAngle = 0;
+
+    const sweepX = centerX + Math.cos(sweepAngle) * maxRadiusPixel;
+    const sweepY = centerY + Math.sin(sweepAngle) * maxRadiusPixel;
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(sweepX, sweepY);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  function drawAircraft() {
+    if (maxRadiusPixel <= 0) return;
+
+    aircraftList.forEach(plane => {
+      const pos = gpsToCanvas(plane.latitude, plane.longitude);
+
+      if (pos.distKm <= RADIUS_KM) {
+        const category = getAircraftCategory(plane.model);
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate((plane.heading * Math.PI) / 180);
+        drawAircraftShape(ctx, category);
+        ctx.restore();
+
+        const labelX = pos.x + 14;
+        const labelY = pos.y - 6;
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(`${plane.callsign} [${plane.model}]`, labelX, labelY);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '10px monospace';
+        ctx.fillText(`ALT: ${plane.altitudeFt}FT | ${plane.speedKts}KTS`, labelX, labelY + 12);
+      }
+    });
+  }
+
+  function render() {
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight || maxRadiusPixel <= 0) {
+      resize();
+    }
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height);
+
+    drawRadarGrid();
+    drawSweep();
+    drawAircraft();
+
+    requestAnimationFrame(render);
+  }
+
+  fetchAircraft();
+  setInterval(fetchAircraft, API_INTERVAL_MS);
+  render();
+</script>
+</body>
+</html>
