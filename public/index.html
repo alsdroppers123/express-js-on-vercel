@@ -35,6 +35,25 @@
   window.addEventListener('resize', resize);
   resize();
 
+  // Lively Wallpaper Native Property Listener
+function livelyPropertyListener(name, val) {
+  switch (name) {
+    case "lat":
+      config.lat = parseFloat(val) || config.lat;
+      break;
+    case "lon":
+      config.lon = parseFloat(val) || config.lon;
+      break;
+    case "radius":
+      config.radiusKm = parseInt(val) || config.radiusKm;
+      break;
+    case "themeColor":
+      config.color = val;
+      break;
+  }
+  // Immediately refresh radar data with new coordinates/settings
+
+
   function gpsToCanvas(lat, lon) {
     const latRad = HOME_LAT * Math.PI / 180;
     const kmPerDegreeLat = 111.132;

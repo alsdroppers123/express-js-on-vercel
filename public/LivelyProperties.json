@@ -1,0 +1,25 @@
+{
+  "lat": {
+    "type": "textbox",
+    "text": "Latitude",
+    "value": "27.7218"
+  },
+  "lon": {
+    "type": "textbox",
+    "text": "Longitude",
+    "value": "85.3124"
+  },
+  "radius": {
+    "type": "slider",
+    "text": "Radar Range (KM)",
+    "value": 80,
+    "min": 20,
+    "max": 300,
+    "step": 10
+  },
+  "themeColor": {
+    "type": "color",
+    "text": "Radar Color",
+    "value": "#FFFFFF"
+  }
+}
