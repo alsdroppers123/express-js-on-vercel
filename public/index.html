@@ -10,17 +10,22 @@
       padding: 0;
       box-sizing: border-box;
       user-select: none;
+      -webkit-user-select: none;
     }
 
     :root {
       --theme-color: #00FF66;
+      --theme-glow: rgba(0, 255, 102, 0.25);
+      --bg-dark: #030605;
+      --card-bg: rgba(6, 15, 10, 0.88);
+      --border-color: rgba(0, 255, 102, 0.35);
     }
 
     body, html {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #030605;
+      background-color: var(--bg-dark);
       color: var(--theme-color);
       font-family: 'SF Mono', 'Roboto Mono', 'Cascadia Code', Consolas, Menlo, monospace;
     }
@@ -33,6 +38,7 @@
       height: 100%;
       display: block;
       z-index: 1;
+      cursor: crosshair;
     }
 
     /* Subtle CRT Scanline overlay */
@@ -44,12 +50,17 @@
       height: 100%;
       background: linear-gradient(
         rgba(18, 16, 16, 0) 50%, 
-        rgba(0, 0, 0, 0.25) 50%
+        rgba(0, 0, 0, 0.28) 50%
       );
       background-size: 100% 4px;
       z-index: 2;
       pointer-events: none;
-      opacity: 0.4;
+      opacity: 0.45;
+      transition: opacity 0.3s ease;
+    }
+
+    .scanlines.disabled {
+      opacity: 0;
     }
 
     /* Vignette around canvas for depth */
@@ -59,35 +70,83 @@
       left: 0;
       width: 100%;
       height: 100%;
-      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85);
+      box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.88);
       z-index: 2;
       pointer-events: none;
+      transition: opacity 0.3s ease;
     }
 
-    /* Live HUD pill */
-    #preset-hud {
+    .vignette.disabled {
+      opacity: 0;
+    }
+
+    /* Header Controls Bar */
+    .top-bar {
       position: absolute;
-      top: 18px;
-      right: 20px;
-      z-index: 10;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      z-index: 15;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .top-bar > * {
+      pointer-events: auto;
+    }
+
+    .hud-btn-group {
       display: flex;
       gap: 8px;
       align-items: center;
-      background: rgba(3, 10, 6, 0.82);
-      border: 1px solid var(--theme-color);
-      padding: 6px 12px;
+    }
+
+    .hud-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      padding: 7px 13px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .hud-btn:hover {
+      border-color: var(--theme-color);
+      background: rgba(0, 255, 102, 0.12);
+      box-shadow: 0 0 12px var(--theme-glow);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn:active {
+      transform: translateY(0);
+    }
+
+    .hud-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 7px 14px;
       border-radius: 6px;
       font-size: 11px;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      opacity: 0.9;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    #preset-hud:hover {
-      opacity: 1;
-      background: rgba(0, 255, 102, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
     }
 
     .hud-dot {
@@ -101,38 +160,732 @@
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.8); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    /* Floating Hotkeys Helper Bottom Bar */
+    .bottom-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 10px;
+      letter-spacing: 0.4px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .key-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 9px;
+      margin-right: 4px;
+      color: #FFF;
+    }
+
+    /* Minimalist Floating Trigger for Clean/Zen Mode */
+    #zen-restore-btn {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      z-index: 25;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      opacity: 0.4;
+      transition: all 0.2s ease;
+    }
+
+    #zen-restore-btn:hover {
+      opacity: 1;
+      border-color: var(--theme-color);
+      box-shadow: 0 0 10px var(--theme-glow);
+    }
+
+    /* Selected Plane Info Card */
+    #plane-inspector {
+      position: absolute;
+      bottom: 50px;
+      left: 16px;
+      z-index: 20;
+      background: var(--card-bg);
+      border: 1px solid var(--theme-color);
+      padding: 14px 18px;
+      border-radius: 8px;
+      width: 280px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px var(--theme-glow);
+      backdrop-filter: blur(14px);
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .inspector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .inspector-title {
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.8px;
+    }
+
+    .inspector-close {
+      cursor: pointer;
+      opacity: 0.6;
+      font-size: 14px;
+      transition: opacity 0.2s;
+    }
+
+    .inspector-close:hover {
+      opacity: 1;
+    }
+
+    .inspector-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      font-size: 10.5px;
+    }
+
+    .inspector-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .inspector-label {
+      opacity: 0.55;
+      font-size: 9px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .inspector-val {
+      font-weight: bold;
+      margin-top: 2px;
+    }
+
+    /* Customization Modal / Drawer */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-panel {
+      background: rgba(6, 18, 11, 0.96);
+      border: 1px solid var(--theme-color);
+      width: 100%;
+      max-width: 680px;
+      max-height: 88vh;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 25px var(--theme-glow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 255, 102, 0.05);
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--theme-color);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .modal-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+      opacity: 0.4;
+    }
+
+    /* Preset Grid */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 8px;
+    }
+
+    .preset-chip {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .preset-chip:hover {
+      background: rgba(0, 255, 102, 0.12);
+      border-color: var(--theme-color);
+    }
+
+    .preset-chip.active {
+      background: rgba(0, 255, 102, 0.22);
+      border-color: var(--theme-color);
+      box-shadow: 0 0 10px var(--theme-glow);
+    }
+
+    .preset-chip-name {
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preset-chip-code {
+      font-size: 9px;
+      opacity: 0.6;
+    }
+
+    /* Coordinate Inputs & GPS Search */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .input-label {
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      opacity: 0.65;
+      text-transform: uppercase;
+    }
+
+    .text-input {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: var(--theme-color);
+      box-shadow: 0 0 8px var(--theme-glow);
+    }
+
+    /* Color Swatches Grid */
+    .color-swatches {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.12);
+    }
+
+    .color-swatch.active {
+      border-color: #FFF;
+      box-shadow: 0 0 12px currentColor;
+      transform: scale(1.15);
+    }
+
+    .custom-color-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .custom-color-input {
+      -webkit-appearance: none;
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    .custom-color-input::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .custom-color-input::-webkit-color-swatch {
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+
+    /* Slider Row */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .slider-input {
+      flex: 1;
+      accent-color: var(--theme-color);
+      cursor: pointer;
+    }
+
+    .slider-val {
+      min-width: 55px;
+      text-align: right;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    /* Toggle Switches */
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .toggle-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color);
+      padding: 10px 12px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-card:hover {
+      background: rgba(0, 255, 102, 0.08);
+    }
+
+    .toggle-label {
+      font-size: 11px;
+      letter-spacing: 0.4px;
+    }
+
+    .switch-ui {
+      width: 34px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .switch-ui::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #FFF;
+      transition: transform 0.2s;
+    }
+
+    .toggle-card.active .switch-ui {
+      background: var(--theme-color);
+      box-shadow: 0 0 8px var(--theme-glow);
+    }
+
+    .toggle-card.active .switch-ui::after {
+      transform: translateX(16px);
+      background: #000;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    /* Zen Clean Mode Styles */
+    body.zen-mode .top-bar,
+    body.zen-mode .bottom-bar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-10px);
+    }
+
+    body.zen-mode #zen-restore-btn {
+      display: flex;
     }
   </style>
 </head>
 <body>
 
   <canvas id="radar-canvas"></canvas>
-  <div class="scanlines"></div>
-  <div class="vignette"></div>
-  
-  <div id="preset-hud" title="Click to cycle airspace location preset">
-    <div class="hud-dot"></div>
-    <span id="hud-status">RADAR ONLINE</span>
-    <span style="opacity: 0.4;">|</span>
-    <span id="hud-contacts">SCANNING...</span>
+  <div id="scanlines-layer" class="scanlines"></div>
+  <div id="vignette-layer" class="vignette"></div>
+
+  <!-- Header Top Bar Controls -->
+  <header class="top-bar" id="top-bar">
+    <div class="hud-btn-group">
+      <button class="hud-btn" id="open-settings-btn" title="Open Customization Deck [S]">
+        <span>⚙</span>
+        <span>SETTINGS</span>
+      </button>
+      <button class="hud-btn" id="cycle-preset-btn" title="Cycle Location Preset [P]">
+        <span>🌐</span>
+        <span id="preset-name-hud">KATHMANDU (VNKT)</span>
+      </button>
+      <button class="hud-btn" id="cycle-theme-btn" title="Cycle Phosphor Color [C]">
+        <span>🎨</span>
+        <span>COLOR</span>
+      </button>
+      <button class="hud-btn" id="toggle-audio-btn" title="Radar Audio Ping [M]">
+        <span id="audio-icon">🔇</span>
+        <span id="audio-status">MUTED</span>
+      </button>
+    </div>
+
+    <div class="hud-btn-group">
+      <div class="hud-pill" id="live-status-pill">
+        <div class="hud-dot"></div>
+        <span id="hud-status">RADAR ONLINE</span>
+        <span style="opacity: 0.4;">|</span>
+        <span id="hud-contacts">SCANNING...</span>
+      </div>
+      <button class="hud-btn" id="zen-mode-btn" title="Minimal Wallpaper View [H]">
+        <span>🔲</span>
+        <span>CLEAN VIEW</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Floating Restore Button when in Zen Mode -->
+  <button id="zen-restore-btn" title="Exit Clean View / Open Settings [H or S]">⚙</button>
+
+  <!-- Interactive Plane Details Inspector HUD Card -->
+  <div id="plane-inspector">
+    <div class="inspector-header">
+      <div class="inspector-title" id="insp-callsign">AIRCRAFT INFO</div>
+      <div class="inspector-close" id="close-inspector">✕</div>
+    </div>
+    <div class="inspector-grid">
+      <div class="inspector-item">
+        <span class="inspector-label">MODEL</span>
+        <span class="inspector-val" id="insp-model">--</span>
+      </div>
+      <div class="inspector-item">
+        <span class="inspector-label">HEX ADDR</span>
+        <span class="inspector-val" id="insp-hex">--</span>
+      </div>
+      <div class="inspector-item">
+        <span class="inspector-label">ALTITUDE</span>
+        <span class="inspector-val" id="insp-alt">--</span>
+      </div>
+      <div class="inspector-item">
+        <span class="inspector-label">GROUND SPEED</span>
+        <span class="inspector-val" id="insp-speed">--</span>
+      </div>
+      <div class="inspector-item">
+        <span class="inspector-label">HEADING</span>
+        <span class="inspector-val" id="insp-heading">--</span>
+      </div>
+      <div class="inspector-item">
+        <span class="inspector-label">DISTANCE</span>
+        <span class="inspector-val" id="insp-dist">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Telemetry Bar -->
+  <footer class="bottom-bar" id="bottom-bar">
+    <span id="telemetry-coords">CTR: 27.7172°N, 85.3240°E | RNG: 80KM</span>
+    <span style="opacity: 0.3;">•</span>
+    <span><span class="key-badge">S</span>Settings</span>
+    <span><span class="key-badge">P</span>Presets</span>
+    <span><span class="key-badge">C</span>Color</span>
+    <span><span class="key-badge">M</span>Sound</span>
+    <span><span class="key-badge">H</span>Clean View</span>
+    <span><span class="key-badge">F</span>Fullscreen</span>
+  </footer>
+
+  <!-- Radar Settings & Customization Modal Overlay -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚙</span>
+          <span>RADAR CONFIGURATION & CUSTOMIZATION</span>
+        </div>
+        <button class="modal-close-btn" id="close-modal-btn" title="Close [ESC]">✕</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Airspace Location Presets -->
+        <div>
+          <div class="section-title">Global Airspace Presets</div>
+          <div class="presets-grid" id="presets-container"></div>
+        </div>
+
+        <!-- Custom Coordinates & Geolocation -->
+        <div>
+          <div class="section-title">Custom Airspace Coordinates</div>
+          <div class="form-row">
+            <div class="input-group">
+              <label class="input-label" for="input-lat">Center Latitude (-90 to 90)</label>
+              <input type="number" step="0.0001" id="input-lat" class="text-input" placeholder="e.g. 27.7172">
+            </div>
+            <div class="input-group">
+              <label class="input-label" for="input-lon">Center Longitude (-180 to 180)</label>
+              <input type="number" step="0.0001" id="input-lon" class="text-input" placeholder="e.g. 85.3240">
+            </div>
+            <button class="hud-btn" id="apply-coords-btn" style="height: 38px;">
+              <span>APPLY</span>
+            </button>
+            <button class="hud-btn" id="geolocate-btn" style="height: 38px;" title="Locate via GPS">
+              <span>📍 MY LOCATION</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Phosphor Color Palette -->
+        <div>
+          <div class="section-title">Radar Phosphor Color</div>
+          <div class="color-swatches">
+            <div class="color-swatch active" data-color="#00FF66" style="background: #00FF66; color: #00FF66;" title="Emerald Phosphor"></div>
+            <div class="color-swatch" data-color="#FFB000" style="background: #FFB000; color: #FFB000;" title="Amber CRT"></div>
+            <div class="color-swatch" data-color="#00E5FF" style="background: #00E5FF; color: #00E5FF;" title="Tactical Cyan"></div>
+            <div class="color-swatch" data-color="#E0F2FE" style="background: #E0F2FE; color: #E0F2FE;" title="Ice White"></div>
+            <div class="color-swatch" data-color="#FF3366" style="background: #FF3366; color: #FF3366;" title="Crimson Red"></div>
+            <div class="color-swatch" data-color="#C084FC" style="background: #C084FC; color: #C084FC;" title="Cyber Violet"></div>
+            <div class="color-swatch" data-color="#FACC15" style="background: #FACC15; color: #FACC15;" title="Solar Gold"></div>
+            
+            <div class="custom-color-picker-wrap">
+              <input type="color" id="custom-color-input" class="custom-color-input" value="#00FF66" title="Choose Custom Hex Color">
+              <span style="font-size: 10px; opacity: 0.8;">CUSTOM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radar Range & Sweep Speed Sliders -->
+        <div>
+          <div class="section-title">Radar Calibration</div>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="slider-row">
+              <span class="input-label" style="width: 120px;">Range Radius:</span>
+              <input type="range" id="range-slider" class="slider-input" min="20" max="300" step="5" value="80">
+              <span class="slider-val" id="range-val">80 KM</span>
+            </div>
+            <div class="slider-row">
+              <span class="input-label" style="width: 120px;">Sweep Speed:</span>
+              <input type="range" id="speed-slider" class="slider-input" min="5" max="40" step="1" value="16">
+              <span class="slider-val" id="speed-val">1.6 RPM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer & Display Toggles -->
+        <div>
+          <div class="section-title">Visual Overlays & Audio</div>
+          <div class="toggle-grid">
+            <div class="toggle-card active" id="toggle-trails-card">
+              <span class="toggle-label">Flight Breadcrumb Trails</span>
+              <div class="switch-ui"></div>
+            </div>
+            <div class="toggle-card active" id="toggle-airports-card">
+              <span class="toggle-label">Surrounding Airports</span>
+              <div class="switch-ui"></div>
+            </div>
+            <div class="toggle-card active" id="toggle-scanlines-card">
+              <span class="toggle-label">CRT Scanlines FX</span>
+              <div class="switch-ui"></div>
+            </div>
+            <div class="toggle-card active" id="toggle-vignette-card">
+              <span class="toggle-label">Vignette Depth Glow</span>
+              <div class="switch-ui"></div>
+            </div>
+            <div class="toggle-card" id="toggle-sound-card">
+              <span class="toggle-label">Audio Sonar Ping</span>
+              <div class="switch-ui"></div>
+            </div>
+            <div class="toggle-card active" id="toggle-labels-card">
+              <span class="toggle-label">Aircraft Flight Tags</span>
+              <div class="switch-ui"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="hud-btn" id="reset-defaults-btn">
+          <span>🔄 RESET DEFAULTS</span>
+        </button>
+        <button class="hud-btn" id="save-close-btn" style="background: rgba(0, 255, 102, 0.2); border-color: var(--theme-color);">
+          <span>DONE & SAVE</span>
+        </button>
+      </div>
+    </div>
   </div>
 
 <script>
-  // Airspace Presets
+  // Airspace Presets Database
   const AIRSPACE_PRESETS = [
-    { name: "Kathmandu (VNKT)", lat: 27.7172, lon: 85.3240, radius: 80 },
-    { name: "London (EGLL)", lat: 51.4700, lon: -0.4543, radius: 65 },
-    { name: "New York (KJFK)", lat: 40.6413, lon: -73.7781, radius: 70 },
-    { name: "Tokyo (RJTT)", lat: 35.5494, lon: 139.7798, radius: 75 },
-    { name: "Dubai (OMDB)", lat: 25.2532, lon: 55.3657, radius: 80 },
-    { name: "Singapore (WSSS)", lat: 1.3644, lon: 103.9915, radius: 65 },
-    { name: "Frankfurt (EDDF)", lat: 50.0379, lon: 8.5622, radius: 70 },
-    { name: "Los Angeles (KLAX)", lat: 33.9416, lon: -118.4085, radius: 75 }
+    { name: "Kathmandu", code: "VNKT", lat: 27.7172, lon: 85.3240, radius: 80 },
+    { name: "London Heathrow", code: "EGLL", lat: 51.4700, lon: -0.4543, radius: 65 },
+    { name: "New York JFK", code: "KJFK", lat: 40.6413, lon: -73.7781, radius: 70 },
+    { name: "Tokyo Haneda", code: "RJTT", lat: 35.5494, lon: 139.7798, radius: 75 },
+    { name: "Dubai Intl", code: "OMDB", lat: 25.2532, lon: 55.3657, radius: 80 },
+    { name: "Singapore Changi", code: "WSSS", lat: 1.3644, lon: 103.9915, radius: 65 },
+    { name: "Frankfurt", code: "EDDF", lat: 50.0379, lon: 8.5622, radius: 70 },
+    { name: "Los Angeles", code: "KLAX", lat: 33.9416, lon: -118.4085, radius: 75 },
+    { name: "Paris CDG", code: "LFPG", lat: 49.0097, lon: 2.5479, radius: 70 },
+    { name: "Sydney", code: "YSSY", lat: -33.9399, lon: 151.1753, radius: 70 },
+    { name: "Delhi", code: "VIDP", lat: 28.5562, lon: 77.1000, radius: 75 },
+    { name: "Hong Kong", code: "VHHH", lat: 22.3080, lon: 113.9185, radius: 70 }
   ];
 
-  // Active Radar Configuration State
-  const config = {
+  // Default Configuration
+  const DEFAULT_CONFIG = {
     selectedPresetIndex: 0,
     lat: 27.7172,
     lon: 85.3240,
@@ -140,93 +893,27 @@
     color: '#00FF66',
     showTrails: true,
     showAirports: true,
+    showScanlines: true,
+    showVignette: true,
+    showLabels: true,
+    audioEnabled: false,
     sweepSpeed: 0.016
   };
 
-  let isPaused = false;
-  let customLat = 27.7172;
-  let customLon = 85.3240;
-
-  // Lively Wallpaper Native Property Listener (Declared early to ensure readiness)
-  window.livelyPropertyListener = function(name, val) {
-    if (val === undefined || val === null) return;
-    
-    switch (name) {
-      case "airspacePreset": {
-        const index = typeof val === 'number' ? val : parseInt(val, 10);
-        config.selectedPresetIndex = index;
-        if (index >= 0 && index < AIRSPACE_PRESETS.length) {
-          config.lat = AIRSPACE_PRESETS[index].lat;
-          config.lon = AIRSPACE_PRESETS[index].lon;
-          config.radiusKm = AIRSPACE_PRESETS[index].radius;
-        } else {
-          config.lat = customLat;
-          config.lon = customLon;
-        }
-        trackedAircraft.clear();
-        break;
-      }
-      case "lat": {
-        const parsed = parseFloat(val);
-        if (!isNaN(parsed) && parsed >= -90 && parsed <= 90) {
-          customLat = parsed;
-          if (config.selectedPresetIndex >= AIRSPACE_PRESETS.length) {
-            config.lat = parsed;
-            trackedAircraft.clear();
-          }
-        }
-        break;
-      }
-      case "lon": {
-        const parsed = parseFloat(val);
-        if (!isNaN(parsed) && parsed >= -180 && parsed <= 180) {
-          customLon = parsed;
-          if (config.selectedPresetIndex >= AIRSPACE_PRESETS.length) {
-            config.lon = parsed;
-            trackedAircraft.clear();
-          }
-        }
-        break;
-      }
-      case "radius": {
-        const parsed = parseInt(val, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          config.radiusKm = parsed;
-        }
-        break;
-      }
-      case "themeColor": {
-        applyTheme(val);
-        break;
-      }
-      case "showTrails": {
-        config.showTrails = Boolean(val);
-        break;
-      }
-      case "showAirports": {
-        config.showAirports = Boolean(val);
-        break;
-      }
-      case "sweepSpeed": {
-        const parsed = parseFloat(val);
-        if (!isNaN(parsed) && parsed > 0) {
-          config.sweepSpeed = parsed / 1000;
-        }
-        break;
-      }
+  // Load Saved Configuration from localStorage
+  let config = { ...DEFAULT_CONFIG };
+  try {
+    const saved = localStorage.getItem('airspace_radar_config');
+    if (saved) {
+      config = { ...config, ...JSON.parse(saved) };
     }
+  } catch (e) {}
 
-    resize();
-    fetchAirports();
-    fetchAircraft();
-  };
-
-  // Lively Wallpaper Playback State
-  window.livelyWallpaperPlaybackChanged = function(data) {
-    if (data && typeof data.isPaused === 'boolean') {
-      isPaused = data.isPaused;
-    }
-  };
+  function saveConfig() {
+    try {
+      localStorage.setItem('airspace_radar_config', JSON.stringify(config));
+    } catch (e) {}
+  }
 
   // Global Airport Database for zero-latency & standalone local wallpaper fallback
   const BUILTIN_AIRPORTS = [
@@ -284,12 +971,18 @@
   const ctx = canvas.getContext('2d');
   const hudStatus = document.getElementById('hud-status');
   const hudContacts = document.getElementById('hud-contacts');
+  const presetNameHud = document.getElementById('preset-name-hud');
+  const telemetryCoords = document.getElementById('telemetry-coords');
+  const scanlinesLayer = document.getElementById('scanlines-layer');
+  const vignetteLayer = document.getElementById('vignette-layer');
 
   let displayWidth = 0;
   let displayHeight = 0;
   let centerX = 0;
   let centerY = 0;
   let maxRadiusPixel = 0;
+  let isPaused = false;
+  let selectedPlaneHex = null;
 
   const trackedAircraft = new Map();
   let nearbyAirports = [];
@@ -297,15 +990,66 @@
   let isFetching = false;
   let isFetchingAirports = false;
 
+  // Web Audio Sonar Ping Synthesizer
+  let audioCtx = null;
+  function playSonarPing(freq = 1200) {
+    if (!config.audioEnabled || isPaused) return;
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, audioCtx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.13);
+    } catch (e) {}
+  }
+
+  // Theme application
   function applyTheme(colorInput) {
     if (!colorInput) return;
-    if (typeof colorInput === 'string') {
-      config.color = colorInput;
-    } else if (typeof colorInput === 'object' && colorInput !== null) {
-      if (colorInput.value) config.color = colorInput.value;
-      else if (colorInput.r !== undefined) config.color = `rgb(${colorInput.r}, ${colorInput.g}, ${colorInput.b})`;
-    }
+    config.color = colorInput;
     document.documentElement.style.setProperty('--theme-color', config.color);
+    document.documentElement.style.setProperty('--theme-glow', `${config.color}40`);
+    document.documentElement.style.setProperty('--border-color', `${config.color}59`);
+
+    // Update active swatch
+    document.querySelectorAll('.color-swatch').forEach(swatch => {
+      swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === config.color.toLowerCase());
+    });
+    const customColorInput = document.getElementById('custom-color-input');
+    if (customColorInput) customColorInput.value = config.color;
+  }
+
+  function updateVisualLayers() {
+    scanlinesLayer.classList.toggle('disabled', !config.showScanlines);
+    vignetteLayer.classList.toggle('disabled', !config.showVignette);
+  }
+
+  function updateHUDTelemetry() {
+    const latDir = config.lat >= 0 ? 'N' : 'S';
+    const lonDir = config.lon >= 0 ? 'E' : 'W';
+    telemetryCoords.textContent = `CTR: ${Math.abs(config.lat).toFixed(4)}°${latDir}, ${Math.abs(config.lon).toFixed(4)}°${lonDir} | RNG: ${config.radiusKm}KM`;
+    
+    if (config.selectedPresetIndex >= 0 && config.selectedPresetIndex < AIRSPACE_PRESETS.length) {
+      const p = AIRSPACE_PRESETS[config.selectedPresetIndex];
+      presetNameHud.textContent = `${p.name.toUpperCase()} (${p.code})`;
+    } else {
+      presetNameHud.textContent = `CUSTOM AIRSPACE`;
+    }
   }
 
   function resize() {
@@ -336,7 +1080,6 @@
   }
 
   window.addEventListener('resize', resize);
-  resize();
 
   function gpsToCanvas(lat, lon) {
     const latRad = (config.lat * Math.PI) / 180;
@@ -361,7 +1104,7 @@
   function lerpAngle(start, end, amt) {
     let diff = (end - start) % 360;
     if (diff > 180) diff -= 360;
-    if (diff < -180) diff += 360;
+    if (diff < -180) diff -= 360;
     return (start + diff * amt + 360) % 360;
   }
 
@@ -373,7 +1116,7 @@
       let planeList = null;
       const radiusNm = Math.max(5, Math.round(config.radiusKm * 0.539957));
 
-      // 1. Try local server
+      // 1. Try local Express server route
       try {
         const response = await fetch(`/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
           headers: { 'Accept': 'application/json' }
@@ -384,9 +1127,7 @@
             planeList = data.ac;
           }
         }
-      } catch (e) {
-        // Fallback for standalone Lively local files
-      }
+      } catch (e) {}
 
       // 2. Direct Fallback to Public ADS-B APIs
       if (!planeList) {
@@ -418,9 +1159,7 @@
                 break;
               }
             }
-          } catch (err) {
-            // Try next
-          }
+          } catch (err) {}
         }
       }
 
@@ -448,7 +1187,7 @@
             const lastHist = existing.history[existing.history.length - 1];
             if (!lastHist || Math.hypot(lastHist.x - targetPos.x, lastHist.y - targetPos.y) > 3) {
               existing.history.push({ x: targetPos.x, y: targetPos.y, time: now });
-              if (existing.history.length > 12) existing.history.shift();
+              if (existing.history.length > 14) existing.history.shift();
             }
           } else {
             trackedAircraft.set(hex, {
@@ -475,6 +1214,9 @@
         trackedAircraft.forEach((val, key) => {
           if (now - val.lastSeen > 35000) {
             trackedAircraft.delete(key);
+            if (selectedPlaneHex === key) {
+              hideInspector();
+            }
           }
         });
 
@@ -508,9 +1250,7 @@
             rawAirports = data.airports;
           }
         }
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
 
       if (!rawAirports) {
         const latRad = (config.lat * Math.PI) / 180;
@@ -534,9 +1274,7 @@
           };
         });
       }
-    } catch (err) {
-      // Ignored
-    } finally {
+    } catch (err) {} finally {
       isFetchingAirports = false;
     }
   }
@@ -557,7 +1295,7 @@
         if (angleDiff < 0.15) {
           airport.blipIntensity = 1.0;
         } else {
-          airport.blipIntensity = Math.max(0.40, airport.blipIntensity - 0.0035);
+          airport.blipIntensity = Math.max(0.38, airport.blipIntensity - 0.0035);
         }
 
         ctx.save();
@@ -568,32 +1306,34 @@
         ctx.lineWidth = 1.2;
 
         ctx.beginPath();
-        ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
         ctx.fillStyle = config.color;
         ctx.fill();
 
         ctx.beginPath();
-        ctx.moveTo(0, -9.5); ctx.lineTo(0, -6.5);
-        ctx.moveTo(0, 6.5);  ctx.lineTo(0, 9.5);
-        ctx.moveTo(-9.5, 0); ctx.lineTo(-6.5, 0);
-        ctx.moveTo(6.5, 0);  ctx.lineTo(9.5, 0);
+        ctx.moveTo(0, -9); ctx.lineTo(0, -6);
+        ctx.moveTo(0, 6);  ctx.lineTo(0, 9);
+        ctx.moveTo(-9, 0); ctx.lineTo(-6, 0);
+        ctx.moveTo(6, 0);  ctx.lineTo(9, 0);
         ctx.stroke();
 
-        const labelX = 12;
-        const labelY = -3;
-        ctx.textAlign = 'left';
-        ctx.font = 'bold 9.5px monospace';
-        ctx.fillStyle = config.color;
-        ctx.globalAlpha = Math.min(0.95, airport.blipIntensity);
-        ctx.fillText(`APT: ${airport.iata || airport.icao} [${airport.name}]`, labelX, labelY);
+        if (config.showLabels) {
+          const labelX = 12;
+          const labelY = -3;
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillStyle = config.color;
+          ctx.globalAlpha = Math.min(0.95, airport.blipIntensity);
+          ctx.fillText(`APT: ${airport.iata || airport.icao} [${airport.name}]`, labelX, labelY);
 
-        ctx.font = '8px monospace';
-        ctx.globalAlpha = Math.min(0.70, airport.blipIntensity);
-        ctx.fillText(`${airport.icao} • ${airport.distKm.toFixed(1)}KM`, labelX, labelY + 10);
+          ctx.font = '8px monospace';
+          ctx.globalAlpha = Math.min(0.70, airport.blipIntensity);
+          ctx.fillText(`${airport.icao} • ${airport.distKm.toFixed(1)}KM`, labelX, labelY + 10);
+        }
 
         ctx.restore();
       }
@@ -653,7 +1393,7 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('N', centerX, centerY - maxRadiusPixel - 15);
-    ctx.fillText('S', centerX, centerY + maxRadiusPixel + 15);
+    ctx.fillText('S', centerY + maxRadiusPixel + 15, centerY);
     ctx.fillText('E', centerX + maxRadiusPixel + 15, centerY);
     ctx.fillText('W', centerX - maxRadiusPixel - 15, centerY);
 
@@ -662,11 +1402,6 @@
     ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
     ctx.fillStyle = config.color;
     ctx.fill();
-
-    ctx.textAlign = 'center';
-    ctx.font = '9.5px monospace';
-    ctx.globalAlpha = 0.55;
-    ctx.fillText(`CENTER: ${config.lat.toFixed(4)}°N, ${config.lon.toFixed(4)}°E | RADIUS: ${config.radiusKm}KM | CONTACTS: ${trackedAircraft.size} | [CLICK / 'P' FOR PRESETS]`, centerX, displayHeight - 16);
 
     ctx.restore();
   }
@@ -742,7 +1477,7 @@
   function drawAircraft() {
     const LERP_FACTOR = 0.08;
 
-    trackedAircraft.forEach((plane) => {
+    trackedAircraft.forEach((plane, hex) => {
       plane.currX = lerp(plane.currX, plane.targetX, LERP_FACTOR);
       plane.currY = lerp(plane.currY, plane.targetY, LERP_FACTOR);
       plane.currHeading = lerpAngle(plane.currHeading, plane.targetHeading, LERP_FACTOR);
@@ -756,14 +1491,18 @@
         let angleDiff = sweepAngle - planeAngle;
         if (angleDiff < 0) angleDiff += Math.PI * 2;
 
-        if (angleDiff < 0.12) {
+        if (angleDiff < 0.10) {
+          if (plane.blipIntensity < 0.8) {
+            playSonarPing(1100 + Math.round((1 - (pixelDist / maxRadiusPixel)) * 600));
+          }
           plane.blipIntensity = 1.0;
         } else {
-          plane.blipIntensity = Math.max(0.42, plane.blipIntensity - 0.0035);
+          plane.blipIntensity = Math.max(0.40, plane.blipIntensity - 0.0035);
         }
 
         ctx.save();
 
+        // 1. Breadcrumb Trails
         if (config.showTrails && plane.history.length > 1) {
           ctx.beginPath();
           ctx.moveTo(plane.history[0].x, plane.history[0].y);
@@ -779,6 +1518,7 @@
           ctx.setLineDash([]);
         }
 
+        // 2. Velocity Vector
         const vectorLen = Math.min(26, Math.max(10, (plane.speedKts || 250) / 20));
         const headingRad = (plane.currHeading * Math.PI) / 180;
         const vecX = plane.currX + Math.sin(headingRad) * vectorLen;
@@ -792,25 +1532,41 @@
         ctx.globalAlpha = 0.65 * plane.blipIntensity;
         ctx.stroke();
 
+        // 3. Selection Ring if selected
+        if (selectedPlaneHex === hex) {
+          ctx.beginPath();
+          ctx.arc(plane.currX, plane.currY, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = config.color;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // 4. Aircraft Icon
         ctx.globalAlpha = plane.blipIntensity;
         drawPlaneIcon(plane.currX, plane.currY, plane.currHeading);
 
-        const labelX = plane.currX + 12;
-        const labelY = plane.currY - 6;
-        const flightNum = plane.callsign || plane.hex || 'UNK';
-        const modelName = plane.model || 'AC';
-        const altText = plane.altitudeFt > 0 ? `FL${Math.round(plane.altitudeFt / 100)}` : 'GND';
-        const speedText = plane.speedKts > 0 ? `${plane.speedKts}KT` : '0KT';
+        // 5. Data Tag Labels
+        if (config.showLabels) {
+          const labelX = plane.currX + 12;
+          const labelY = plane.currY - 6;
+          const flightNum = plane.callsign || plane.hex || 'UNK';
+          const modelName = plane.model || 'AC';
+          const altText = plane.altitudeFt > 0 ? `FL${Math.round(plane.altitudeFt / 100)}` : 'GND';
+          const speedText = plane.speedKts > 0 ? `${plane.speedKts}KT` : '0KT';
 
-        ctx.textAlign = 'left';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillStyle = config.color;
-        ctx.globalAlpha = Math.min(0.95, plane.blipIntensity);
-        ctx.fillText(`${flightNum} [${modelName}]`, labelX, labelY);
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillStyle = config.color;
+          ctx.globalAlpha = Math.min(0.95, plane.blipIntensity);
+          ctx.fillText(`${flightNum} [${modelName}]`, labelX, labelY);
 
-        ctx.font = '9px monospace';
-        ctx.globalAlpha = Math.min(0.80, plane.blipIntensity);
-        ctx.fillText(`${altText} | ${speedText}`, labelX, labelY + 11);
+          ctx.font = '9px monospace';
+          ctx.globalAlpha = Math.min(0.80, plane.blipIntensity);
+          ctx.fillText(`${altText} | ${speedText}`, labelX, labelY + 11);
+        }
 
         ctx.restore();
       }
@@ -833,37 +1589,306 @@
     requestAnimationFrame(render);
   }
 
-  fetchAirports();
-  fetchAircraft();
-  setInterval(fetchAircraft, 2500);
-  requestAnimationFrame(render);
+  // Inspector handlers
+  function showInspector(plane) {
+    selectedPlaneHex = plane.hex;
+    const inspector = document.getElementById('plane-inspector');
+    document.getElementById('insp-callsign').textContent = `FLIGHT: ${plane.callsign || plane.hex}`;
+    document.getElementById('insp-model').textContent = plane.model || 'Aircraft';
+    document.getElementById('insp-hex').textContent = plane.hex;
+    document.getElementById('insp-alt').textContent = plane.altitudeFt > 0 ? `${plane.altitudeFt} FT (FL${Math.round(plane.altitudeFt/100)})` : 'GROUND';
+    document.getElementById('insp-speed').textContent = `${plane.speedKts || 0} KTS`;
+    document.getElementById('insp-heading').textContent = `${plane.currHeading ? Math.round(plane.currHeading) : 0}°`;
+    
+    const pos = gpsToCanvas(plane.latitude, plane.longitude);
+    document.getElementById('insp-dist').textContent = `${pos.distKm.toFixed(1)} KM`;
 
-  function cyclePreset() {
-    config.selectedPresetIndex = (config.selectedPresetIndex + 1) % AIRSPACE_PRESETS.length;
-    const preset = AIRSPACE_PRESETS[config.selectedPresetIndex];
+    inspector.style.display = 'block';
+  }
+
+  function hideInspector() {
+    selectedPlaneHex = null;
+    document.getElementById('plane-inspector').style.display = 'none';
+  }
+
+  document.getElementById('close-inspector').addEventListener('click', hideInspector);
+
+  // Canvas Click Detection (Select aircraft)
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    let clickedPlane = null;
+    let closestDist = 22; // 22px hit radius
+
+    trackedAircraft.forEach(plane => {
+      const d = Math.hypot(plane.currX - clickX, plane.currY - clickY);
+      if (d < closestDist) {
+        closestDist = d;
+        clickedPlane = plane;
+      }
+    });
+
+    if (clickedPlane) {
+      showInspector(clickedPlane);
+    } else {
+      hideInspector();
+    }
+  });
+
+  // Presets Grid Population in Modal
+  function populatePresetsGrid() {
+    const container = document.getElementById('presets-container');
+    container.innerHTML = '';
+
+    AIRSPACE_PRESETS.forEach((preset, idx) => {
+      const chip = document.createElement('div');
+      chip.className = `preset-chip ${config.selectedPresetIndex === idx ? 'active' : ''}`;
+      chip.innerHTML = `
+        <span class="preset-chip-name">${preset.name}</span>
+        <span class="preset-chip-code">${preset.code} • ${preset.radius}KM</span>
+      `;
+      chip.addEventListener('click', () => {
+        selectPreset(idx);
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  function selectPreset(idx) {
+    config.selectedPresetIndex = idx;
+    const preset = AIRSPACE_PRESETS[idx];
     config.lat = preset.lat;
     config.lon = preset.lon;
     config.radiusKm = preset.radius;
+
+    document.getElementById('input-lat').value = config.lat;
+    document.getElementById('input-lon').value = config.lon;
+    document.getElementById('range-slider').value = config.radiusKm;
+    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
+
     trackedAircraft.clear();
+    hideInspector();
+    saveConfig();
+    updateHUDTelemetry();
+    populatePresetsGrid();
     resize();
     fetchAirports();
     fetchAircraft();
   }
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'p' || e.key === 'P') {
-      cyclePreset();
-    } else if (e.key === 'c' || e.key === 'C') {
-      const colors = ['#00FF66', '#FFB000', '#00E5FF', '#FFFFFF', '#FF3366'];
-      const nextColor = colors[(colors.indexOf(config.color) + 1) % colors.length] || '#00FF66';
-      applyTheme(nextColor);
+  function cyclePreset() {
+    const nextIdx = (config.selectedPresetIndex + 1) % AIRSPACE_PRESETS.length;
+    selectPreset(nextIdx);
+  }
+
+  function cycleColor() {
+    const colors = ['#00FF66', '#FFB000', '#00E5FF', '#E0F2FE', '#FF3366', '#C084FC', '#FACC15'];
+    const currentIdx = colors.findIndex(c => c.toLowerCase() === config.color.toLowerCase());
+    const nextColor = colors[(currentIdx + 1) % colors.length] || '#00FF66';
+    applyTheme(nextColor);
+    saveConfig();
+  }
+
+  function toggleAudio() {
+    config.audioEnabled = !config.audioEnabled;
+    document.getElementById('audio-icon').textContent = config.audioEnabled ? '🔊' : '🔇';
+    document.getElementById('audio-status').textContent = config.audioEnabled ? 'ON' : 'MUTED';
+    document.getElementById('toggle-sound-card').classList.toggle('active', config.audioEnabled);
+    if (config.audioEnabled) playSonarPing(1400);
+    saveConfig();
+  }
+
+  function toggleZenMode() {
+    document.body.classList.toggle('zen-mode');
+  }
+
+  // Modal Open/Close Controls
+  const modal = document.getElementById('settings-modal');
+  function openModal() {
+    document.getElementById('input-lat').value = config.lat;
+    document.getElementById('input-lon').value = config.lon;
+    document.getElementById('range-slider').value = config.radiusKm;
+    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
+    document.getElementById('speed-slider').value = Math.round(config.sweepSpeed * 1000);
+    document.getElementById('speed-val').textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
+
+    populatePresetsGrid();
+    modal.classList.add('active');
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+    saveConfig();
+  }
+
+  document.getElementById('open-settings-btn').addEventListener('click', openModal);
+  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  document.getElementById('save-close-btn').addEventListener('click', closeModal);
+  document.getElementById('zen-restore-btn').addEventListener('click', () => {
+    document.body.classList.remove('zen-mode');
+    openModal();
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Modal Interactive Form Controls
+  document.getElementById('apply-coords-btn').addEventListener('click', () => {
+    const lat = parseFloat(document.getElementById('input-lat').value);
+    const lon = parseFloat(document.getElementById('input-lon').value);
+    if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      config.lat = lat;
+      config.lon = lon;
+      config.selectedPresetIndex = -1; // custom
+      trackedAircraft.clear();
+      hideInspector();
+      saveConfig();
+      updateHUDTelemetry();
+      populatePresetsGrid();
+      resize();
+      fetchAirports();
+      fetchAircraft();
     }
   });
 
-  const hudElement = document.getElementById('preset-hud');
-  if (hudElement) {
-    hudElement.addEventListener('click', cyclePreset);
+  document.getElementById('geolocate-btn').addEventListener('click', () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        config.lat = parseFloat(pos.coords.latitude.toFixed(4));
+        config.lon = parseFloat(pos.coords.longitude.toFixed(4));
+        config.selectedPresetIndex = -1;
+        document.getElementById('input-lat').value = config.lat;
+        document.getElementById('input-lon').value = config.lon;
+        trackedAircraft.clear();
+        saveConfig();
+        updateHUDTelemetry();
+        populatePresetsGrid();
+        resize();
+        fetchAirports();
+        fetchAircraft();
+      }, (err) => {
+        alert("Geolocation not available or permission denied.");
+      });
+    }
+  });
+
+  // Color Swatches
+  document.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      applyTheme(swatch.dataset.color);
+      saveConfig();
+    });
+  });
+
+  document.getElementById('custom-color-input').addEventListener('input', (e) => {
+    applyTheme(e.target.value);
+    saveConfig();
+  });
+
+  // Range Slider
+  const rangeSlider = document.getElementById('range-slider');
+  rangeSlider.addEventListener('input', (e) => {
+    config.radiusKm = parseInt(e.target.value, 10);
+    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
+    updateHUDTelemetry();
+    resize();
+    fetchAirports();
+    fetchAircraft();
+  });
+
+  // Speed Slider
+  const speedSlider = document.getElementById('speed-slider');
+  speedSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    config.sweepSpeed = val / 1000;
+    document.getElementById('speed-val').textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
+  });
+
+  // Visual & Audio Toggles
+  function setupToggle(cardId, configKey, onUpdate) {
+    const card = document.getElementById(cardId);
+    card.classList.toggle('active', Boolean(config[configKey]));
+    card.addEventListener('click', () => {
+      config[configKey] = !config[configKey];
+      card.classList.toggle('active', config[configKey]);
+      if (onUpdate) onUpdate();
+      saveConfig();
+    });
   }
+
+  setupToggle('toggle-trails-card', 'showTrails');
+  setupToggle('toggle-airports-card', 'showAirports', fetchAirports);
+  setupToggle('toggle-scanlines-card', 'showScanlines', updateVisualLayers);
+  setupToggle('toggle-vignette-card', 'showVignette', updateVisualLayers);
+  setupToggle('toggle-labels-card', 'showLabels');
+  setupToggle('toggle-sound-card', 'audioEnabled', () => {
+    document.getElementById('audio-icon').textContent = config.audioEnabled ? '🔊' : '🔇';
+    document.getElementById('audio-status').textContent = config.audioEnabled ? 'ON' : 'MUTED';
+    if (config.audioEnabled) playSonarPing(1400);
+  });
+
+  // Reset Defaults
+  document.getElementById('reset-defaults-btn').addEventListener('click', () => {
+    config = { ...DEFAULT_CONFIG };
+    applyTheme(config.color);
+    updateVisualLayers();
+    selectPreset(0);
+  });
+
+  // Header button listeners
+  document.getElementById('cycle-preset-btn').addEventListener('click', cyclePreset);
+  document.getElementById('cycle-theme-btn').addEventListener('click', cycleColor);
+  document.getElementById('toggle-audio-btn').addEventListener('click', toggleAudio);
+  document.getElementById('zen-mode-btn').addEventListener('click', toggleZenMode);
+
+  // Keyboard Shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    
+    switch (e.key.toLowerCase()) {
+      case 's':
+        if (modal.classList.contains('active')) closeModal();
+        else openModal();
+        break;
+      case 'p':
+        cyclePreset();
+        break;
+      case 'c':
+        cycleColor();
+        break;
+      case 'm':
+        toggleAudio();
+        break;
+      case 'h':
+        toggleZenMode();
+        break;
+      case 'f':
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+        break;
+      case 'escape':
+        if (modal.classList.contains('active')) closeModal();
+        if (document.body.classList.contains('zen-mode')) document.body.classList.remove('zen-mode');
+        hideInspector();
+        break;
+    }
+  });
+
+  // Initialize
+  applyTheme(config.color);
+  updateVisualLayers();
+  updateHUDTelemetry();
+  resize();
+  fetchAirports();
+  fetchAircraft();
+  setInterval(fetchAircraft, 2500);
+  requestAnimationFrame(render);
 </script>
 
 </body>
