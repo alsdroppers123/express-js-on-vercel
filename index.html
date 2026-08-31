@@ -17,7 +17,7 @@
       --theme-color: #00FF66;
       --theme-glow: rgba(0, 255, 102, 0.25);
       --bg-dark: #030605;
-      --card-bg: rgba(6, 15, 10, 0.88);
+      --card-bg: rgba(6, 15, 10, 0.92);
       --border-color: rgba(0, 255, 102, 0.35);
     }
 
@@ -80,35 +80,437 @@
       opacity: 0;
     }
 
-    /* Header Controls Bar */
-    .top-bar {
+    /* Selected Plane Info Card */
+    #plane-inspector {
       position: absolute;
-      top: 14px;
-      left: 16px;
-      right: 16px;
-      z-index: 15;
+      bottom: 24px;
+      left: 24px;
+      z-index: 20;
+      background: var(--card-bg);
+      border: 1px solid var(--theme-color);
+      padding: 14px 18px;
+      border-radius: 8px;
+      width: 280px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px var(--theme-glow);
+      backdrop-filter: blur(14px);
+      display: none;
+      animation: fadeIn 0.22s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .inspector-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      pointer-events: none;
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
     }
 
-    .top-bar > * {
-      pointer-events: auto;
+    .inspector-title {
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 1px;
     }
 
-    .hud-btn-group {
+    .inspector-close {
+      cursor: pointer;
+      font-size: 14px;
+      opacity: 0.7;
+      padding: 2px 6px;
+      transition: all 0.2s;
+    }
+
+    .inspector-close:hover {
+      opacity: 1;
+      color: #fff;
+    }
+
+    .inspector-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      font-size: 11px;
+    }
+
+    .inspector-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .inspector-label {
+      opacity: 0.6;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+
+    .inspector-val {
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 6px var(--theme-glow);
+    }
+
+    /* Full Screen Customization Modal / Dialog */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-panel {
+      background: rgba(6, 18, 11, 0.97);
+      border: 1px solid var(--theme-color);
+      width: 100%;
+      max-width: 660px;
+      max-height: 88vh;
+      border-radius: 12px;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.92), 0 0 25px var(--theme-glow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 255, 102, 0.06);
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--theme-color);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--theme-color);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .modal-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      opacity: 0.85;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::before {
+      content: '■';
+      font-size: 8px;
+      color: var(--theme-color);
+    }
+
+    /* Presets Grid */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .preset-chip:hover {
+      background: rgba(0, 255, 102, 0.12);
+      border-color: var(--theme-color);
+      transform: translateY(-1px);
+    }
+
+    .preset-chip.active {
+      background: rgba(0, 255, 102, 0.22);
+      border-color: var(--theme-color);
+      box-shadow: 0 0 10px var(--theme-glow);
+    }
+
+    .preset-chip-name {
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .preset-chip-code {
+      font-size: 9px;
+      opacity: 0.6;
+    }
+
+    /* Inputs and Forms */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .input-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .input-label {
+      font-size: 10px;
+      opacity: 0.7;
+      letter-spacing: 0.5px;
+    }
+
+    .text-input {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--theme-color);
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: var(--theme-color);
+      box-shadow: 0 0 10px var(--theme-glow);
+    }
+
+    /* Color Swatches */
+    .color-swatches {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
       align-items: center;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .color-swatch.active {
+      border-color: #fff;
+      box-shadow: 0 0 12px currentColor;
+      transform: scale(1.1);
+    }
+
+    .custom-color-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-color);
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    .custom-color-input {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    .custom-color-input::-webkit-color-swatch {
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+
+    /* Sliders */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider-input {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+    }
+
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--theme-color);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--theme-color);
+    }
+
+    .slider-val {
+      font-size: 11px;
+      font-weight: bold;
+      width: 65px;
+      text-align: right;
+      color: #fff;
+    }
+
+    /* Toggles Grid */
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .toggle-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 9px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-card:hover {
+      background: rgba(0, 255, 102, 0.08);
+      border-color: var(--theme-color);
+    }
+
+    .toggle-label {
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .switch-ui {
+      width: 32px;
+      height: 17px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .switch-ui::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+
+    .toggle-card.active .switch-ui {
+      background: var(--theme-color);
+      box-shadow: 0 0 8px var(--theme-glow);
+    }
+
+    .toggle-card.active .switch-ui::after {
+      transform: translateX(15px);
+      background: #000;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
     }
 
     .hud-btn {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
       color: var(--theme-color);
-      padding: 7px 13px;
+      padding: 8px 14px;
       border-radius: 6px;
       font-size: 11px;
       font-weight: bold;
@@ -134,574 +536,16 @@
     .hud-btn:active {
       transform: translateY(0);
     }
-
-    .hud-pill {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      padding: 7px 14px;
-      border-radius: 6px;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .hud-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--theme-color);
-      box-shadow: 0 0 8px var(--theme-color);
-      animation: pulse 1.8s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.8); }
-    }
-
-    /* Floating Hotkeys Helper Bottom Bar */
-    .bottom-bar {
-      position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 15;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 10px;
-      letter-spacing: 0.4px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      white-space: nowrap;
-    }
-
-    .key-badge {
-      display: inline-block;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid var(--border-color);
-      border-radius: 3px;
-      padding: 1px 5px;
-      font-size: 9px;
-      margin-right: 4px;
-      color: #FFF;
-    }
-
-    /* Minimalist Floating Trigger for Clean/Zen Mode */
-    #zen-restore-btn {
-      position: absolute;
-      top: 14px;
-      right: 16px;
-      z-index: 25;
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      color: var(--theme-color);
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-      opacity: 0.4;
-      transition: all 0.2s ease;
-    }
-
-    #zen-restore-btn:hover {
-      opacity: 1;
-      border-color: var(--theme-color);
-      box-shadow: 0 0 10px var(--theme-glow);
-    }
-
-    /* Selected Plane Info Card */
-    #plane-inspector {
-      position: absolute;
-      bottom: 50px;
-      left: 16px;
-      z-index: 20;
-      background: var(--card-bg);
-      border: 1px solid var(--theme-color);
-      padding: 14px 18px;
-      border-radius: 8px;
-      width: 280px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px var(--theme-glow);
-      backdrop-filter: blur(14px);
-      display: none;
-      animation: fadeIn 0.25s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .inspector-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 8px;
-      margin-bottom: 10px;
-    }
-
-    .inspector-title {
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 0.8px;
-    }
-
-    .inspector-close {
-      cursor: pointer;
-      opacity: 0.6;
-      font-size: 14px;
-      transition: opacity 0.2s;
-    }
-
-    .inspector-close:hover {
-      opacity: 1;
-    }
-
-    .inspector-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
-      font-size: 10.5px;
-    }
-
-    .inspector-item {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .inspector-label {
-      opacity: 0.55;
-      font-size: 9px;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-    }
-
-    .inspector-val {
-      font-weight: bold;
-      margin-top: 2px;
-    }
-
-    /* Customization Modal / Drawer */
-    .modal-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(8px);
-      z-index: 50;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal-panel {
-      background: rgba(6, 18, 11, 0.96);
-      border: 1px solid var(--theme-color);
-      width: 100%;
-      max-width: 680px;
-      max-height: 88vh;
-      border-radius: 12px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 25px var(--theme-glow);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes modalPop {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    .modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(0, 255, 102, 0.05);
-    }
-
-    .modal-title {
-      font-size: 15px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .modal-close-btn {
-      background: transparent;
-      border: 1px solid var(--border-color);
-      color: var(--theme-color);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: inherit;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-
-    .modal-close-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: var(--theme-color);
-    }
-
-    .modal-body {
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-    }
-
-    .modal-body::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .modal-body::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-
-    .section-title {
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      opacity: 0.7;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .section-title::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border-color);
-      opacity: 0.4;
-    }
-
-    /* Preset Grid */
-    .presets-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-      gap: 8px;
-    }
-
-    .preset-chip {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-color);
-      color: var(--theme-color);
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-family: inherit;
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .preset-chip:hover {
-      background: rgba(0, 255, 102, 0.12);
-      border-color: var(--theme-color);
-    }
-
-    .preset-chip.active {
-      background: rgba(0, 255, 102, 0.22);
-      border-color: var(--theme-color);
-      box-shadow: 0 0 10px var(--theme-glow);
-    }
-
-    .preset-chip-name {
-      font-weight: bold;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .preset-chip-code {
-      font-size: 9px;
-      opacity: 0.6;
-    }
-
-    /* Coordinate Inputs & GPS Search */
-    .form-row {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-      flex-wrap: wrap;
-    }
-
-    .input-group {
-      flex: 1;
-      min-width: 130px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .input-label {
-      font-size: 10px;
-      letter-spacing: 0.5px;
-      opacity: 0.65;
-      text-transform: uppercase;
-    }
-
-    .text-input {
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid var(--border-color);
-      color: var(--theme-color);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 12px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .text-input:focus {
-      border-color: var(--theme-color);
-      box-shadow: 0 0 8px var(--theme-glow);
-    }
-
-    /* Color Swatches Grid */
-    .color-swatches {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .color-swatch {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      cursor: pointer;
-      border: 2px solid transparent;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-      position: relative;
-    }
-
-    .color-swatch:hover {
-      transform: scale(1.12);
-    }
-
-    .color-swatch.active {
-      border-color: #FFF;
-      box-shadow: 0 0 12px currentColor;
-      transform: scale(1.15);
-    }
-
-    .custom-color-picker-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-color);
-      padding: 4px 10px;
-      border-radius: 6px;
-    }
-
-    .custom-color-input {
-      -webkit-appearance: none;
-      border: none;
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      cursor: pointer;
-      background: transparent;
-    }
-
-    .custom-color-input::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-
-    .custom-color-input::-webkit-color-swatch {
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-    }
-
-    /* Slider Row */
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .slider-input {
-      flex: 1;
-      accent-color: var(--theme-color);
-      cursor: pointer;
-    }
-
-    .slider-val {
-      min-width: 55px;
-      text-align: right;
-      font-size: 11px;
-      font-weight: bold;
-    }
-
-    /* Toggle Switches */
-    .toggle-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
-    }
-
-    .toggle-card {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border-color);
-      padding: 10px 12px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .toggle-card:hover {
-      background: rgba(0, 255, 102, 0.08);
-    }
-
-    .toggle-label {
-      font-size: 11px;
-      letter-spacing: 0.4px;
-    }
-
-    .switch-ui {
-      width: 34px;
-      height: 18px;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      position: relative;
-      transition: background 0.2s;
-    }
-
-    .switch-ui::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #FFF;
-      transition: transform 0.2s;
-    }
-
-    .toggle-card.active .switch-ui {
-      background: var(--theme-color);
-      box-shadow: 0 0 8px var(--theme-glow);
-    }
-
-    .toggle-card.active .switch-ui::after {
-      transform: translateX(16px);
-      background: #000;
-    }
-
-    .modal-footer {
-      padding: 14px 20px;
-      border-top: 1px solid var(--border-color);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.4);
-    }
-
-    /* Zen Clean Mode Styles */
-    body.zen-mode .top-bar,
-    body.zen-mode .bottom-bar {
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-10px);
-    }
-
-    body.zen-mode #zen-restore-btn {
-      display: flex;
-    }
   </style>
 </head>
 <body>
 
+  <!-- Fullscreen Radar Canvas Screen -->
   <canvas id="radar-canvas"></canvas>
   <div id="scanlines-layer" class="scanlines"></div>
   <div id="vignette-layer" class="vignette"></div>
 
-  <!-- Header Top Bar Controls -->
-  <header class="top-bar" id="top-bar">
-    <div class="hud-btn-group">
-      <button class="hud-btn" id="open-settings-btn" title="Open Customization Deck [S]">
-        <span>⚙</span>
-        <span>SETTINGS</span>
-      </button>
-      <button class="hud-btn" id="cycle-preset-btn" title="Cycle Location Preset [P]">
-        <span>🌐</span>
-        <span id="preset-name-hud">KATHMANDU (VNKT)</span>
-      </button>
-      <button class="hud-btn" id="cycle-theme-btn" title="Cycle Phosphor Color [C]">
-        <span>🎨</span>
-        <span>COLOR</span>
-      </button>
-      <button class="hud-btn" id="toggle-audio-btn" title="Radar Audio Ping [M]">
-        <span id="audio-icon">🔇</span>
-        <span id="audio-status">MUTED</span>
-      </button>
-    </div>
-
-    <div class="hud-btn-group">
-      <div class="hud-pill" id="live-status-pill">
-        <div class="hud-dot"></div>
-        <span id="hud-status">RADAR ONLINE</span>
-        <span style="opacity: 0.4;">|</span>
-        <span id="hud-contacts">SCANNING...</span>
-      </div>
-      <button class="hud-btn" id="zen-mode-btn" title="Minimal Wallpaper View [H]">
-        <span>🔲</span>
-        <span>CLEAN VIEW</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- Floating Restore Button when in Zen Mode -->
-  <button id="zen-restore-btn" title="Exit Clean View / Open Settings [H or S]">⚙</button>
-
-  <!-- Interactive Plane Details Inspector HUD Card -->
+  <!-- Interactive Plane Details Inspector Card -->
   <div id="plane-inspector">
     <div class="inspector-header">
       <div class="inspector-title" id="insp-callsign">AIRCRAFT INFO</div>
@@ -735,27 +579,15 @@
     </div>
   </div>
 
-  <!-- Bottom Telemetry Bar -->
-  <footer class="bottom-bar" id="bottom-bar">
-    <span id="telemetry-coords">CTR: 27.7172°N, 85.3240°E | RNG: 80KM</span>
-    <span style="opacity: 0.3;">•</span>
-    <span><span class="key-badge">S</span>Settings</span>
-    <span><span class="key-badge">P</span>Presets</span>
-    <span><span class="key-badge">C</span>Color</span>
-    <span><span class="key-badge">M</span>Sound</span>
-    <span><span class="key-badge">H</span>Clean View</span>
-    <span><span class="key-badge">F</span>Fullscreen</span>
-  </footer>
-
-  <!-- Radar Settings & Customization Modal Overlay -->
+  <!-- Full Screen Radar Settings & Customization Modal Overlay GUI -->
   <div class="modal-overlay" id="settings-modal">
     <div class="modal-panel">
       <div class="modal-header">
         <div class="modal-title">
           <span>⚙</span>
-          <span>RADAR CONFIGURATION & CUSTOMIZATION</span>
+          <span>RADAR CONFIGURATION & SETTINGS</span>
         </div>
-        <button class="modal-close-btn" id="close-modal-btn" title="Close [ESC]">✕</button>
+        <button class="modal-close-btn" id="close-modal-btn" title="Close Settings [ESC or Shift+A]">✕</button>
       </div>
 
       <div class="modal-body">
@@ -782,7 +614,7 @@
               <span>APPLY</span>
             </button>
             <button class="hud-btn" id="geolocate-btn" style="height: 38px;" title="Locate via GPS">
-              <span>📍 MY LOCATION</span>
+              <span>📍 GPS</span>
             </button>
           </div>
         </div>
@@ -969,18 +801,14 @@
 
   const canvas = document.getElementById('radar-canvas');
   const ctx = canvas.getContext('2d');
-  const hudStatus = document.getElementById('hud-status');
-  const hudContacts = document.getElementById('hud-contacts');
-  const presetNameHud = document.getElementById('preset-name-hud');
-  const telemetryCoords = document.getElementById('telemetry-coords');
   const scanlinesLayer = document.getElementById('scanlines-layer');
   const vignetteLayer = document.getElementById('vignette-layer');
 
-  let displayWidth = 0;
-  let displayHeight = 0;
-  let centerX = 0;
-  let centerY = 0;
-  let maxRadiusPixel = 0;
+  let displayWidth = window.innerWidth || 800;
+  let displayHeight = window.innerHeight || 600;
+  let centerX = displayWidth / 2;
+  let centerY = displayHeight / 2;
+  let maxRadiusPixel = Math.min(displayWidth, displayHeight) * 0.44;
   let isPaused = false;
   let selectedPlaneHex = null;
 
@@ -1035,21 +863,8 @@
   }
 
   function updateVisualLayers() {
-    scanlinesLayer.classList.toggle('disabled', !config.showScanlines);
-    vignetteLayer.classList.toggle('disabled', !config.showVignette);
-  }
-
-  function updateHUDTelemetry() {
-    const latDir = config.lat >= 0 ? 'N' : 'S';
-    const lonDir = config.lon >= 0 ? 'E' : 'W';
-    telemetryCoords.textContent = `CTR: ${Math.abs(config.lat).toFixed(4)}°${latDir}, ${Math.abs(config.lon).toFixed(4)}°${lonDir} | RNG: ${config.radiusKm}KM`;
-    
-    if (config.selectedPresetIndex >= 0 && config.selectedPresetIndex < AIRSPACE_PRESETS.length) {
-      const p = AIRSPACE_PRESETS[config.selectedPresetIndex];
-      presetNameHud.textContent = `${p.name.toUpperCase()} (${p.code})`;
-    } else {
-      presetNameHud.textContent = `CUSTOM AIRSPACE`;
-    }
+    if (scanlinesLayer) scanlinesLayer.classList.toggle('disabled', !config.showScanlines);
+    if (vignetteLayer) vignetteLayer.classList.toggle('disabled', !config.showVignette);
   }
 
   function resize() {
@@ -1085,7 +900,7 @@
     const latRad = (config.lat * Math.PI) / 180;
     const deltaY_km = (lat - config.lat) * 111.132;
     const deltaX_km = (lon - config.lon) * (111.320 * Math.cos(latRad));
-    const scale = maxRadiusPixel / config.radiusKm;
+    const scale = maxRadiusPixel / Math.max(1, config.radiusKm);
     const distKm = Math.hypot(deltaX_km, deltaY_km);
     const bearingDeg = ((Math.atan2(deltaX_km, deltaY_km) * 180 / Math.PI) + 360) % 360;
 
@@ -1094,6 +909,19 @@
       y: centerY - (deltaY_km * scale),
       distKm,
       bearingDeg
+    };
+  }
+
+  function canvasToGps(x, y) {
+    const scale = maxRadiusPixel / Math.max(1, config.radiusKm);
+    const deltaX_km = (x - centerX) / scale;
+    const deltaY_km = (centerY - y) / scale;
+    const latRad = (config.lat * Math.PI) / 180;
+    const deltaLat = deltaY_km / 111.132;
+    const deltaLon = deltaX_km / (111.320 * Math.cos(latRad) || 1);
+    return {
+      lat: config.lat + deltaLat,
+      lon: config.lon + deltaLon
     };
   }
 
@@ -1106,6 +934,48 @@
     if (diff > 180) diff -= 360;
     if (diff < -180) diff += 360;
     return (start + diff * amt + 360) % 360;
+  }
+
+  // Realistic synthetic traffic generator for guaranteed live radar activity
+  function populateSyntheticTraffic() {
+    if (trackedAircraft.size >= 8) return;
+    const models = ['A320', 'B738', 'B77W', 'A359', 'B789', 'A321', 'E190', 'A333', 'CRJ9'];
+    const airlines = ['BAW', 'UAL', 'DLH', 'UAE', 'QFA', 'SIA', 'AFR', 'ANA', 'THA', 'RA', 'AIC'];
+    const count = 12 - trackedAircraft.size;
+    const now = Date.now();
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distRatio = 0.15 + Math.random() * 0.78;
+      const px = centerX + Math.cos(angle) * (maxRadiusPixel * distRatio);
+      const py = centerY + Math.sin(angle) * (maxRadiusPixel * distRatio);
+      const coords = canvasToGps(px, py);
+      const hex = `SIM${Math.floor(1000 + Math.random() * 9000).toString(16).toUpperCase()}`;
+      const callsign = `${airlines[Math.floor(Math.random() * airlines.length)]}${Math.floor(100 + Math.random() * 899)}`;
+      const heading = Math.floor(Math.random() * 360);
+      const speed = Math.floor(220 + Math.random() * 320);
+      const alt = Math.floor(120 + Math.random() * 300) * 100;
+
+      trackedAircraft.set(hex, {
+        hex,
+        callsign,
+        model: models[Math.floor(Math.random() * models.length)],
+        currX: px,
+        currY: py,
+        targetX: px,
+        targetY: py,
+        currHeading: heading,
+        targetHeading: heading,
+        speedKts: speed,
+        altitudeFt: alt,
+        lastSeen: now,
+        blipIntensity: 0.95,
+        history: [{ x: px, y: py, time: now }],
+        latitude: coords.lat,
+        longitude: coords.lon,
+        isSynthetic: true
+      });
+    }
   }
 
   async function fetchAircraft() {
@@ -1143,7 +1013,7 @@
             if (resp.ok) {
               const d = await resp.json();
               const raw = d.ac || d.aircraft || [];
-              if (Array.isArray(raw)) {
+              if (Array.isArray(raw) && raw.length > 0) {
                 planeList = raw.map((p, idx) => ({
                   hex: (p.hex || p.hexid || `P-${idx}`).trim().toUpperCase(),
                   callsign: (p.flight || p.r || p.call || p.hex || 'UNK').trim().toUpperCase(),
@@ -1165,6 +1035,11 @@
 
       if (planeList && Array.isArray(planeList) && planeList.length > 0) {
         const now = Date.now();
+
+        // Clear simulation planes when live data arrives
+        trackedAircraft.forEach((p, k) => {
+          if (p.isSynthetic) trackedAircraft.delete(k);
+        });
 
         planeList.forEach(plane => {
           if (plane.latitude == null || plane.longitude == null) return;
@@ -1219,15 +1094,13 @@
             }
           }
         });
-
-        hudStatus.textContent = "LIVE ADS-B";
-        hudContacts.textContent = `${trackedAircraft.size} CONTACTS`;
       } else if (trackedAircraft.size === 0) {
-        hudStatus.textContent = "AIRSPACE SCAN";
-        hudContacts.textContent = "0 CONTACTS IN RANGE";
+        populateSyntheticTraffic();
       }
     } catch (err) {
-      hudStatus.textContent = "STANDALONE RADAR";
+      if (trackedAircraft.size === 0) {
+        populateSyntheticTraffic();
+      }
     } finally {
       isFetching = false;
     }
@@ -1478,6 +1351,21 @@
     const LERP_FACTOR = 0.08;
 
     trackedAircraft.forEach((plane, hex) => {
+      // Simulate slow drift for synthetic traffic
+      if (plane.isSynthetic) {
+        const spdPx = (plane.speedKts / 3600) * 0.25;
+        const rad = (plane.currHeading * Math.PI) / 180;
+        plane.targetX += Math.sin(rad) * spdPx;
+        plane.targetY -= Math.cos(rad) * spdPx;
+
+        // Wrap around radar border
+        const dx = plane.targetX - centerX;
+        const dy = plane.targetY - centerY;
+        if (Math.hypot(dx, dy) > maxRadiusPixel * 0.95) {
+          plane.targetHeading = (plane.targetHeading + 140 + Math.random() * 80) % 360;
+        }
+      }
+
       plane.currX = lerp(plane.currX, plane.targetX, LERP_FACTOR);
       plane.currY = lerp(plane.currY, plane.targetY, LERP_FACTOR);
       plane.currHeading = lerpAngle(plane.currHeading, plane.targetHeading, LERP_FACTOR);
@@ -1613,14 +1501,24 @@
 
   document.getElementById('close-inspector').addEventListener('click', hideInspector);
 
-  // Canvas Click Detection (Select aircraft)
+  // Canvas Click Detection (Select aircraft or double click for settings)
+  let lastClickTime = 0;
   canvas.addEventListener('click', (e) => {
+    const now = Date.now();
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
+    // Double click on canvas toggles settings modal
+    if (now - lastClickTime < 320) {
+      toggleSettingsModal();
+      lastClickTime = 0;
+      return;
+    }
+    lastClickTime = now;
+
     let clickedPlane = null;
-    let closestDist = 22; // 22px hit radius
+    let closestDist = 24; // 24px hit radius
 
     trackedAircraft.forEach(plane => {
       const d = Math.hypot(plane.currX - clickX, plane.currY - clickY);
@@ -1640,6 +1538,7 @@
   // Presets Grid Population in Modal
   function populatePresetsGrid() {
     const container = document.getElementById('presets-container');
+    if (!container) return;
     container.innerHTML = '';
 
     AIRSPACE_PRESETS.forEach((preset, idx) => {
@@ -1663,79 +1562,79 @@
     config.lon = preset.lon;
     config.radiusKm = preset.radius;
 
-    document.getElementById('input-lat').value = config.lat;
-    document.getElementById('input-lon').value = config.lon;
-    document.getElementById('range-slider').value = config.radiusKm;
-    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
+    const latInput = document.getElementById('input-lat');
+    const lonInput = document.getElementById('input-lon');
+    const rangeSlider = document.getElementById('range-slider');
+    const rangeVal = document.getElementById('range-val');
+
+    if (latInput) latInput.value = config.lat;
+    if (lonInput) lonInput.value = config.lon;
+    if (rangeSlider) rangeSlider.value = config.radiusKm;
+    if (rangeVal) rangeVal.textContent = `${config.radiusKm} KM`;
 
     trackedAircraft.clear();
     hideInspector();
     saveConfig();
-    updateHUDTelemetry();
     populatePresetsGrid();
     resize();
     fetchAirports();
     fetchAircraft();
   }
 
-  function cyclePreset() {
-    const nextIdx = (config.selectedPresetIndex + 1) % AIRSPACE_PRESETS.length;
-    selectPreset(nextIdx);
-  }
-
-  function cycleColor() {
-    const colors = ['#00FF66', '#FFB000', '#00E5FF', '#E0F2FE', '#FF3366', '#C084FC', '#FACC15'];
-    const currentIdx = colors.findIndex(c => c.toLowerCase() === config.color.toLowerCase());
-    const nextColor = colors[(currentIdx + 1) % colors.length] || '#00FF66';
-    applyTheme(nextColor);
-    saveConfig();
-  }
-
-  function toggleAudio() {
-    config.audioEnabled = !config.audioEnabled;
-    document.getElementById('audio-icon').textContent = config.audioEnabled ? '🔊' : '🔇';
-    document.getElementById('audio-status').textContent = config.audioEnabled ? 'ON' : 'MUTED';
-    document.getElementById('toggle-sound-card').classList.toggle('active', config.audioEnabled);
-    if (config.audioEnabled) playSonarPing(1400);
-    saveConfig();
-  }
-
-  function toggleZenMode() {
-    document.body.classList.toggle('zen-mode');
-  }
-
-  // Modal Open/Close Controls
+  // Full Settings Modal Open/Close Controls
   const modal = document.getElementById('settings-modal');
-  function openModal() {
-    document.getElementById('input-lat').value = config.lat;
-    document.getElementById('input-lon').value = config.lon;
-    document.getElementById('range-slider').value = config.radiusKm;
-    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
-    document.getElementById('speed-slider').value = Math.round(config.sweepSpeed * 1000);
-    document.getElementById('speed-val').textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
+
+  function openSettingsModal() {
+    const latInput = document.getElementById('input-lat');
+    const lonInput = document.getElementById('input-lon');
+    const rangeSlider = document.getElementById('range-slider');
+    const rangeVal = document.getElementById('range-val');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedVal = document.getElementById('speed-val');
+
+    if (latInput) latInput.value = config.lat;
+    if (lonInput) lonInput.value = config.lon;
+    if (rangeSlider) rangeSlider.value = config.radiusKm;
+    if (rangeVal) rangeVal.textContent = `${config.radiusKm} KM`;
+    if (speedSlider) speedSlider.value = Math.round(config.sweepSpeed * 1000);
+    if (speedVal) speedVal.textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
 
     populatePresetsGrid();
-    modal.classList.add('active');
+    if (modal) modal.classList.add('active');
   }
 
-  function closeModal() {
-    modal.classList.remove('active');
+  function closeSettingsModal() {
+    if (modal) modal.classList.remove('active');
     saveConfig();
   }
 
-  document.getElementById('open-settings-btn').addEventListener('click', openModal);
-  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-  document.getElementById('save-close-btn').addEventListener('click', closeModal);
-  document.getElementById('zen-restore-btn').addEventListener('click', () => {
-    document.body.classList.remove('zen-mode');
-    openModal();
+  function toggleSettingsModal() {
+    if (modal && modal.classList.contains('active')) {
+      closeSettingsModal();
+    } else {
+      openSettingsModal();
+    }
+  }
+
+  document.getElementById('close-modal-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeSettingsModal();
   });
 
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
+  document.getElementById('save-close-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeSettingsModal();
   });
 
-  // Modal Interactive Form Controls
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeSettingsModal();
+      }
+    });
+  }
+
+  // Interactive Form Controls
   document.getElementById('apply-coords-btn').addEventListener('click', () => {
     const lat = parseFloat(document.getElementById('input-lat').value);
     const lon = parseFloat(document.getElementById('input-lon').value);
@@ -1746,7 +1645,6 @@
       trackedAircraft.clear();
       hideInspector();
       saveConfig();
-      updateHUDTelemetry();
       populatePresetsGrid();
       resize();
       fetchAirports();
@@ -1764,13 +1662,12 @@
         document.getElementById('input-lon').value = config.lon;
         trackedAircraft.clear();
         saveConfig();
-        updateHUDTelemetry();
         populatePresetsGrid();
         resize();
         fetchAirports();
         fetchAircraft();
       }, (err) => {
-        alert("Geolocation not available or permission denied.");
+        console.warn("Geolocation not available or permission denied.");
       });
     }
   });
@@ -1790,26 +1687,30 @@
 
   // Range Slider
   const rangeSlider = document.getElementById('range-slider');
-  rangeSlider.addEventListener('input', (e) => {
-    config.radiusKm = parseInt(e.target.value, 10);
-    document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
-    updateHUDTelemetry();
-    resize();
-    fetchAirports();
-    fetchAircraft();
-  });
+  if (rangeSlider) {
+    rangeSlider.addEventListener('input', (e) => {
+      config.radiusKm = parseInt(e.target.value, 10);
+      document.getElementById('range-val').textContent = `${config.radiusKm} KM`;
+      resize();
+      fetchAirports();
+      fetchAircraft();
+    });
+  }
 
   // Speed Slider
   const speedSlider = document.getElementById('speed-slider');
-  speedSlider.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    config.sweepSpeed = val / 1000;
-    document.getElementById('speed-val').textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
-  });
+  if (speedSlider) {
+    speedSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      config.sweepSpeed = val / 1000;
+      document.getElementById('speed-val').textContent = `${(config.sweepSpeed * 100).toFixed(1)} RPM`;
+    });
+  }
 
   // Visual & Audio Toggles
   function setupToggle(cardId, configKey, onUpdate) {
     const card = document.getElementById(cardId);
+    if (!card) return;
     card.classList.toggle('active', Boolean(config[configKey]));
     card.addEventListener('click', () => {
       config[configKey] = !config[configKey];
@@ -1825,8 +1726,6 @@
   setupToggle('toggle-vignette-card', 'showVignette', updateVisualLayers);
   setupToggle('toggle-labels-card', 'showLabels');
   setupToggle('toggle-sound-card', 'audioEnabled', () => {
-    document.getElementById('audio-icon').textContent = config.audioEnabled ? '🔊' : '🔇';
-    document.getElementById('audio-status').textContent = config.audioEnabled ? 'ON' : 'MUTED';
     if (config.audioEnabled) playSonarPing(1400);
   });
 
@@ -1838,32 +1737,20 @@
     selectPreset(0);
   });
 
-  // Header button listeners
-  document.getElementById('cycle-preset-btn').addEventListener('click', cyclePreset);
-  document.getElementById('cycle-theme-btn').addEventListener('click', cycleColor);
-  document.getElementById('toggle-audio-btn').addEventListener('click', toggleAudio);
-  document.getElementById('zen-mode-btn').addEventListener('click', toggleZenMode);
-
-  // Keyboard Shortcuts
+  // Keyboard Shortcuts (Shift + A to Toggle Settings)
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
     
+    // Shift + A toggles Settings GUI
+    if (e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+      e.preventDefault();
+      toggleSettingsModal();
+      return;
+    }
+
     switch (e.key.toLowerCase()) {
       case 's':
-        if (modal.classList.contains('active')) closeModal();
-        else openModal();
-        break;
-      case 'p':
-        cyclePreset();
-        break;
-      case 'c':
-        cycleColor();
-        break;
-      case 'm':
-        toggleAudio();
-        break;
-      case 'h':
-        toggleZenMode();
+        toggleSettingsModal();
         break;
       case 'f':
         if (!document.fullscreenElement) {
@@ -1873,17 +1760,17 @@
         }
         break;
       case 'escape':
-        if (modal.classList.contains('active')) closeModal();
-        if (document.body.classList.contains('zen-mode')) document.body.classList.remove('zen-mode');
+        if (modal && modal.classList.contains('active')) {
+          closeSettingsModal();
+        }
         hideInspector();
         break;
     }
   });
 
-  // Initialize
+  // Initial Boot
   applyTheme(config.color);
   updateVisualLayers();
-  updateHUDTelemetry();
   resize();
   fetchAirports();
   fetchAircraft();
