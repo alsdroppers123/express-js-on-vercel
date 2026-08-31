@@ -1,12 +1,28 @@
 {
+  "airspacePreset": {
+    "type": "dropdown",
+    "text": "Airspace Location",
+    "value": 0,
+    "items": [
+      "Kathmandu, Nepal (VNKT)",
+      "London Heathrow, UK (EGLL)",
+      "New York JFK, USA (KJFK)",
+      "Tokyo Haneda, Japan (RJTT)",
+      "Dubai Intl, UAE (OMDB)",
+      "Singapore Changi (WSSS)",
+      "Frankfurt, Germany (EDDF)",
+      "Los Angeles LAX, USA (KLAX)",
+      "Custom Coordinates (below)"
+    ]
+  },
   "lat": {
     "type": "textbox",
-    "text": "Latitude (e.g. 51.5074 or 27.7172)",
+    "text": "Custom Latitude",
     "value": "27.7172"
   },
   "lon": {
     "type": "textbox",
-    "text": "Longitude (e.g. -0.1278 or 85.3240)",
+    "text": "Custom Longitude",
     "value": "85.3240"
   },
   "radius": {
@@ -19,22 +35,22 @@
   },
   "themeColor": {
     "type": "color",
-    "text": "Radar Theme Color",
+    "text": "Radar Phosphor Color",
     "value": "#00FF66"
   },
   "showTrails": {
     "type": "checkbox",
-    "text": "Show Aircraft Flight Trails",
+    "text": "Show Flight Path Trails",
     "value": true
   },
   "showAirports": {
     "type": "checkbox",
-    "text": "Show Nearby Airport Waypoints",
+    "text": "Show Airport Waypoints",
     "value": true
   },
   "sweepSpeed": {
     "type": "slider",
-    "text": "Radar Sweep Speed",
+    "text": "Sweep Rotation Speed",
     "value": 16,
     "min": 5,
     "max": 40,
