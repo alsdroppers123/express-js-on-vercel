@@ -60,34 +60,42 @@
   }
 
   async function fetchAircraft() {
-    const url = `${VERCEL_DOMAIN}/api/index?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`;
-    try {
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        statusEl.innerText = `HTTP Error: ${response.status}`;
-        return;
+    const endpoints = [
+      `${VERCEL_DOMAIN}/api?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`,
+      `${VERCEL_DOMAIN}/api/index?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`
+    ];
+
+    let success = false;
+
+    for (let url of endpoints) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) continue;
+
+        const data = await response.json();
+
+        if (data && Array.isArray(data.ac)) {
+          aircraftList = data.ac.map(plane => ({
+            callsign: (plane.flight || plane.r || "UNK").trim(),
+            model: (plane.t || "AC").trim().toUpperCase(),
+            longitude: plane.lon,
+            latitude: plane.lat,
+            altitudeFt: plane.alt_baro || plane.alt_geom || 0,
+            speedKts: Math.round(plane.gs || 0),
+            heading: plane.track || 0
+          })).filter(p => p.latitude != null && p.longitude != null);
+
+          statusEl.innerText = `LIVE | Range: ${config.radiusKm} KM | Targets: ${aircraftList.length}`;
+          success = true;
+          break;
+        }
+      } catch (err) {
+        // Suppress uncaught network error to keep canvas rendering
       }
+    }
 
-      const data = await response.json();
-
-      if (data && Array.isArray(data.ac)) {
-        aircraftList = data.ac.map(plane => ({
-          callsign: (plane.flight || plane.r || "UNK").trim(),
-          model: (plane.t || "AC").trim().toUpperCase(),
-          longitude: plane.lon,
-          latitude: plane.lat,
-          altitudeFt: plane.alt_baro || plane.alt_geom || 0,
-          speedKts: Math.round(plane.gs || 0),
-          heading: plane.track || 0
-        })).filter(p => p.latitude != null && p.longitude != null);
-
-        statusEl.innerText = `LIVE | Radar Range: ${config.radiusKm} KM | Targets: ${aircraftList.length}`;
-      } else {
-        statusEl.innerText = `Connected | No active targets`;
-      }
-    } catch (err) {
-      statusEl.innerText = `CORS/Connection Error: Check server deployment`;
+    if (!success) {
+      statusEl.innerText = `Reconnecting to server...`;
     }
   }
 
