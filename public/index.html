@@ -7,23 +7,26 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000000; font-family: monospace; }
     canvas { display: block; width: 100vw; height: 100vh; }
+    #status-overlay {
+      position: absolute; top: 12px; left: 12px; color: #00FF66;
+      font-size: 11px; background: rgba(0, 0, 0, 0.85); padding: 8px 12px;
+      border: 1px solid #00FF66; z-index: 10; pointer-events: none; border-radius: 4px;
+    }
   </style>
 </head>
 <body>
+<div id="status-overlay">Connecting to server...</div>
 <canvas id="radar"></canvas>
 
 <script>
-  // Detects local file execution in Lively Wallpaper and routes requests to Vercel
   const VERCEL_DOMAIN = "https://express-js-on-vercel-tau-silk-13.vercel.app";
-  const API_BASE = window.location.protocol === 'file:' ? VERCEL_DOMAIN : '';
+  const statusEl = document.getElementById('status-overlay');
 
-  // URL parameters override defaults if present
-  const urlParams = new URLSearchParams(window.location.search);
   let config = {
-    lat: parseFloat(urlParams.get('lat')) || 27.7218,
-    lon: parseFloat(urlParams.get('lon')) || 85.3124,
-    radiusKm: parseInt(urlParams.get('radius')) || 50,
-    color: urlParams.get('color') || '#00FF66'
+    lat: 27.7218,
+    lon: 85.3124,
+    radiusKm: 50,
+    color: '#00FF66'
   };
 
   const API_INTERVAL_MS = 3000;
@@ -35,8 +38,8 @@
   let sweepAngle = 0;
 
   function resize() {
-    width = canvas.width = window.innerWidth || document.documentElement.clientWidth || 800;
-    height = canvas.height = window.innerHeight || document.documentElement.clientHeight || 600;
+    width = canvas.width = window.innerWidth || 800;
+    height = canvas.height = window.innerHeight || 600;
     centerX = width / 2;
     centerY = height / 2;
     maxRadiusPixel = Math.min(width, height) * 0.40;
@@ -46,13 +49,9 @@
 
   function gpsToCanvas(lat, lon) {
     const latRad = config.lat * Math.PI / 180;
-    const kmPerDegreeLat = 111.132;
-    const kmPerDegreeLon = 111.320 * Math.cos(latRad);
-
-    const deltaY_km = (lat - config.lat) * kmPerDegreeLat;
-    const deltaX_km = (lon - config.lon) * kmPerDegreeLon;
-
-    const scale = maxRadiusPixel / (config.radiusKm || 1);
+    const deltaY_km = (lat - config.lat) * 111.132;
+    const deltaX_km = (lon - config.lon) * (111.320 * Math.cos(latRad));
+    const scale = maxRadiusPixel / config.radiusKm;
     return {
       x: centerX + (deltaX_km * scale),
       y: centerY - (deltaY_km * scale),
@@ -61,25 +60,34 @@
   }
 
   async function fetchAircraft() {
+    const url = `${VERCEL_DOMAIN}/api/index?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`;
     try {
-      const url = `${API_BASE}/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`;
       const response = await fetch(url);
-      if (!response.ok) return;
+      
+      if (!response.ok) {
+        statusEl.innerText = `HTTP Error: ${response.status}`;
+        return;
+      }
+
       const data = await response.json();
 
       if (data && Array.isArray(data.ac)) {
         aircraftList = data.ac.map(plane => ({
           callsign: (plane.flight || plane.r || "UNK").trim(),
-          model: (plane.t || "AIRCRAFT").trim().toUpperCase(),
+          model: (plane.t || "AC").trim().toUpperCase(),
           longitude: plane.lon,
           latitude: plane.lat,
           altitudeFt: plane.alt_baro || plane.alt_geom || 0,
           speedKts: Math.round(plane.gs || 0),
           heading: plane.track || 0
         })).filter(p => p.latitude != null && p.longitude != null);
+
+        statusEl.innerText = `LIVE | Radar Range: ${config.radiusKm} KM | Targets: ${aircraftList.length}`;
+      } else {
+        statusEl.innerText = `Connected | No active targets`;
       }
     } catch (err) {
-      console.warn("Fetch Error:", err);
+      statusEl.innerText = `CORS/Connection Error: Check server deployment`;
     }
   }
 
@@ -89,8 +97,6 @@
     ctx.rotate((heading * Math.PI) / 180);
 
     ctx.fillStyle = config.color;
-    ctx.strokeStyle = config.color;
-    ctx.lineWidth = 1.5;
 
     ctx.beginPath();
     ctx.moveTo(0, -12); ctx.lineTo(1.5, -5); ctx.lineTo(10, 2);
@@ -105,8 +111,6 @@
   }
 
   function drawRadarGrid() {
-    if (maxRadiusPixel <= 0) return;
-
     ctx.strokeStyle = config.color;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
@@ -134,8 +138,6 @@
     ctx.beginPath();
     ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.font = '10px monospace';
-    ctx.fillText('HOME RADAR', centerX + 6, centerY + 14);
 
     ctx.font = 'bold 12px monospace';
     ctx.fillText('N', centerX - 4, centerY - maxRadiusPixel - 8);
@@ -145,17 +147,12 @@
   }
 
   function drawSweep() {
-    if (maxRadiusPixel <= 0) return;
-
     sweepAngle += 0.015;
     if (sweepAngle >= Math.PI * 2) sweepAngle = 0;
 
-    const sweepX = centerX + Math.cos(sweepAngle) * maxRadiusPixel;
-    const sweepY = centerY + Math.sin(sweepAngle) * maxRadiusPixel;
-
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
-    ctx.lineTo(sweepX, sweepY);
+    ctx.lineTo(centerX + Math.cos(sweepAngle) * maxRadiusPixel, centerY + Math.sin(sweepAngle) * maxRadiusPixel);
     ctx.strokeStyle = config.color;
     ctx.globalAlpha = 1.0;
     ctx.lineWidth = 1.5;
@@ -163,8 +160,6 @@
   }
 
   function drawAircraft() {
-    if (maxRadiusPixel <= 0) return;
-
     aircraftList.forEach(plane => {
       const pos = gpsToCanvas(plane.latitude, plane.longitude);
 
@@ -188,10 +183,6 @@
   }
 
   function render() {
-    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight || maxRadiusPixel <= 0) {
-      resize();
-    }
-
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
 
@@ -206,21 +197,12 @@
   setInterval(fetchAircraft, API_INTERVAL_MS);
   render();
 
-  // Lively Wallpaper Native Property Listener
   window.livelyPropertyListener = function(name, val) {
     switch (name) {
-      case "lat":
-        config.lat = parseFloat(val) || config.lat;
-        break;
-      case "lon":
-        config.lon = parseFloat(val) || config.lon;
-        break;
-      case "radius":
-        config.radiusKm = parseInt(val) || config.radiusKm;
-        break;
-      case "themeColor":
-        config.color = val;
-        break;
+      case "lat": config.lat = parseFloat(val) || config.lat; break;
+      case "lon": config.lon = parseFloat(val) || config.lon; break;
+      case "radius": config.radiusKm = parseInt(val) || config.radiusKm; break;
+      case "themeColor": config.color = val; break;
     }
     fetchAircraft();
   };

@@ -1,42 +1,32 @@
-const express = require('express');
-const path = require('path');
-const app = express();
+module.exports = async (req, res) => {
+  // Set CORS headers so local file:// execution in Lively Wallpaper can connect
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-app.use(express.static(path.join(__dirname, '../public')));
-
-app.get('/api/planes', async (req, res) => {
-  const endpoints = [
-    'https://api.airplanes.live/v2/point/27.7218/85.3124/43',
-    'https://api.adsb.lol/v2/point/27.7218/85.3124/43',
-    'https://opendata.adsb.fi/api/v2/point/27.7218/85.3124/43'
-  ];
-
-  let data = { ac: [] };
-
-  for (const url of endpoints) {
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36',
-          'Accept': 'application/json'
-        }
-      });
-      if (response.ok) {
-        data = await response.json();
-        break;
-      }
-    } catch (err) {
-      continue;
-    }
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate');
-  res.status(200).json(data);
-});
+  const { lat = '27.7218', lon = '85.3124', radius = '50' } = req.query;
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+  try {
+    const apiUrl = `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${radius}`;
+    const apiRes = await fetch(apiUrl);
 
-module.exports = app;
+    if (!apiRes.ok) {
+      throw new Error(`Upstream API returned status ${apiRes.status}`);
+    }
+
+    const data = await apiRes.json();
+    res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate');
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("Vercel Backend Fetch Error:", error.message);
+    return res.status(500).json({
+      error: "Failed to fetch live flight data",
+      ac: []
+    });
+  }
+};
