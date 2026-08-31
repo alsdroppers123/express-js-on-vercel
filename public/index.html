@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Aircraft Radar</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #030803; font-family: monospace; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="radar"></canvas>
+
+<script>
+  const HOME_LAT = 27.7218;
+  const HOME_LON = 85.3124;
+  const RADIUS_KM = 80;
+  const API_INTERVAL_MS = 8000;
+
+  const canvas = document.getElementById('radar');
+  const ctx = canvas.getContext('2d');
+
+  let width, height, centerX, centerY, maxRadiusPixel;
+  let aircraftList = [];
+  let sweepAngle = 0;
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    centerX = width / 2;
+    centerY = height / 2;
+    maxRadiusPixel = Math.min(width, height) * 0.42;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function gpsToCanvas(lat, lon) {
+    const latRad = HOME_LAT * Math.PI / 180;
+    const kmPerDegreeLat = 111.132;
+    const kmPerDegreeLon = 111.320 * Math.cos(latRad);
+
+    const deltaY_km = (lat - HOME_LAT) * kmPerDegreeLat;
+    const deltaX_km = (lon - HOME_LON) * kmPerDegreeLon;
+
+    const scale = maxRadiusPixel / RADIUS_KM;
+    return {
+      x: centerX + (deltaX_km * scale),
+      y: centerY - (deltaY_km * scale),
+      distKm: Math.hypot(deltaX_km, deltaY_km)
+    };
+  }
+
+  async function fetchAircraft() {
+    try {
+      const response = await fetch('/api/planes');
+      if (!response.ok) return;
+      const data = await response.json();
+
+      if (data && data.ac) {
+        aircraftList = data.ac.map(plane => ({
+          callsign: (plane.flight || plane.r || "UNKNOWN").trim(),
+          longitude: plane.lon,
+          latitude: plane.lat,
+          altitudeFt: plane.alt_baro || plane.alt_geom || 0,
+          heading: plane.track || 0
+        })).filter(p => p.latitude != null && p.longitude != null);
+      }
+    } catch (err) {
+      console.warn("Radar Fetch Error:", err);
+    }
+  }
+
+  function drawRadarGrid() {
+    ctx.strokeStyle = 'rgba(0, 80, 0, 0.6)';
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i <= 4; i++) {
+      const r = maxRadiusPixel * (i / 4);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#006600';
+      ctx.font = '10px monospace';
+      ctx.fillText(`${(RADIUS_KM * (i / 4)).toFixed(0)} km`, centerX + 5, centerY - r + 12);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(centerX - maxRadiusPixel, centerY); ctx.lineTo(centerX + maxRadiusPixel, centerY);
+    ctx.moveTo(centerX, centerY - maxRadiusPixel); ctx.lineTo(centerX, centerY + maxRadiusPixel);
+    ctx.stroke();
+
+    ctx.fillStyle = '#00aa00';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText('N', centerX - 4, centerY - maxRadiusPixel - 8);
+    ctx.fillText('S', centerX - 4, centerY + maxRadiusPixel + 16);
+    ctx.fillText('E', centerX + maxRadiusPixel + 8, centerY + 4);
+    ctx.fillText('W', centerX - maxRadiusPixel - 20, centerY + 4);
+  }
+
+  function drawSweep() {
+    sweepAngle += 0.015;
+    if (sweepAngle >= Math.PI * 2) sweepAngle = 0;
+
+    const sweepX = centerX + Math.cos(sweepAngle) * maxRadiusPixel;
+    const sweepY = centerY + Math.sin(sweepAngle) * maxRadiusPixel;
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(sweepX, sweepY);
+    ctx.strokeStyle = '#00ff00';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function drawAircraft() {
+    aircraftList.forEach(plane => {
+      const pos = gpsToCanvas(plane.latitude, plane.longitude);
+
+      if (pos.distKm <= RADIUS_KM) {
+        ctx.fillStyle = '#00ff66';
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const headRad = (plane.heading - 90) * Math.PI / 180;
+        const lineLen = 14;
+        ctx.strokeStyle = '#00ff66';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        ctx.lineTo(pos.x + Math.cos(headRad) * lineLen, pos.y + Math.sin(headRad) * lineLen);
+        ctx.stroke();
+
+        ctx.fillStyle = '#00ff66';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(`${plane.callsign}`, pos.x + 8, pos.y - 4);
+        
+        ctx.fillStyle = '#00aa44';
+        ctx.font = '10px monospace';
+        ctx.fillText(`ALT: ${plane.altitudeFt}ft`, pos.x + 8, pos.y + 8);
+      }
+    });
+  }
+
+  function render() {
+    ctx.fillStyle = 'rgba(3, 8, 3, 0.12)';
+    ctx.fillRect(0, 0, width, height);
+
+    drawRadarGrid();
+    drawSweep();
+    drawAircraft();
+
+    requestAnimationFrame(render);
+  }
+
+  fetchAircraft();
+  setInterval(fetchAircraft, API_INTERVAL_MS);
+  render();
+</script>
+</body>
+</html>
