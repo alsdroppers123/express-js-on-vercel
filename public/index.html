@@ -2,183 +2,481 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Airspace Radar</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000000; font-family: monospace; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    :root {
+      --theme-color: #00FF66;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030605;
+      color: var(--theme-color);
+      font-family: 'SF Mono', 'Roboto Mono', 'Cascadia Code', Consolas, Menlo, monospace;
+      pointer-events: none;
+    }
+
+    #radar-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Subtle CRT Scanline overlay */
+    .scanlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.28) 50%
+      );
+      background-size: 100% 4px;
+      z-index: 2;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+
+    /* Vignette around canvas for depth */
+    .vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+      z-index: 2;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-<canvas id="radar"></canvas>
+
+  <canvas id="radar-canvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
 
 <script>
-  const VERCEL_DOMAIN = "https://express-js-on-vercel-tau-silk-13.vercel.app";
-
-  let config = {
-    lat: 51.46819970925888, 
-    lon: -0.4549483132986097 ,
-    radiusKm: 130,
-    color: '#00FF66'
+  // Wallpaper Configuration State
+  const config = {
+    lat: 51.51477,
+    lon: -0.12842,
+    radiusKm: 50,
+    color: '#00FF66',
+    showTrails: true
   };
 
-  const API_INTERVAL_MS = 3000;
-  const canvas = document.getElementById('radar');
+  const canvas = document.getElementById('radar-canvas');
   const ctx = canvas.getContext('2d');
 
-  let width = 0, height = 0, centerX = 0, centerY = 0, maxRadiusPixel = 0;
-  let aircraftList = [];
-  let sweepAngle = 0;
+  let displayWidth = 0;
+  let displayHeight = 0;
+  let centerX = 0;
+  let centerY = 0;
+  let maxRadiusPixel = 0;
 
-  function resize() {
-    width = canvas.width = window.innerWidth || 800;
-    height = canvas.height = window.innerHeight || 600;
-    centerX = width / 2;
-    centerY = height / 2;
-    maxRadiusPixel = Math.min(width, height) * 0.40;
+  // Aircraft Map for Smooth Interpolation
+  const trackedAircraft = new Map();
+
+  // Sweep Animation Variables
+  let sweepAngle = 0;
+  const SWEEP_SPEED = 0.016; // smooth rotation speed
+  let isFetching = false;
+
+  // Theme apply
+  function applyTheme(hexColor) {
+    if (!hexColor) return;
+    config.color = hexColor;
+    document.documentElement.style.setProperty('--theme-color', hexColor);
   }
+
+  // Handle Canvas Resize with pixel-perfect aspect ratio
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    displayWidth = window.innerWidth || document.documentElement.clientWidth || 800;
+    displayHeight = window.innerHeight || document.documentElement.clientHeight || 600;
+
+    // Allocate high-DPI buffer
+    canvas.width = Math.round(displayWidth * dpr);
+    canvas.height = Math.round(displayHeight * dpr);
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+
+    // Map 1 unit to 1 CSS pixel without distortion
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    centerX = displayWidth / 2;
+    centerY = displayHeight / 2;
+    // Keep perfectly circular radar scope based on the shortest viewport dimension
+    maxRadiusPixel = Math.min(displayWidth, displayHeight) * 0.44;
+
+    // Recalculate target positions
+    trackedAircraft.forEach(plane => {
+      const pos = gpsToCanvas(plane.latitude, plane.longitude);
+      plane.targetX = pos.x;
+      plane.targetY = pos.y;
+      if (!plane.currX) {
+        plane.currX = pos.x;
+        plane.currY = pos.y;
+      }
+    });
+  }
+
   window.addEventListener('resize', resize);
   resize();
 
+  // Convert GPS (lat, lon) to Canvas coordinate (x, y) relative to radar center
   function gpsToCanvas(lat, lon) {
     const latRad = config.lat * Math.PI / 180;
     const deltaY_km = (lat - config.lat) * 111.132;
     const deltaX_km = (lon - config.lon) * (111.320 * Math.cos(latRad));
     const scale = maxRadiusPixel / config.radiusKm;
+    const distKm = Math.hypot(deltaX_km, deltaY_km);
+    const bearingDeg = ((Math.atan2(deltaX_km, deltaY_km) * 180 / Math.PI) + 360) % 360;
+
     return {
       x: centerX + (deltaX_km * scale),
       y: centerY - (deltaY_km * scale),
-      distKm: Math.hypot(deltaX_km, deltaY_km)
+      distKm,
+      bearingDeg
     };
   }
 
+  // Linear Interpolation
+  function lerp(start, end, amt) {
+    return (1 - amt) * start + amt * end;
+  }
+
+  // Heading shortest-angle lerp
+  function lerpAngle(start, end, amt) {
+    let diff = (end - start) % 360;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+    return (start + diff * amt + 360) % 360;
+  }
+
+  // Fast Backend Polling
   async function fetchAircraft() {
-    const endpoints = [
-      `${VERCEL_DOMAIN}/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`,
-      `${VERCEL_DOMAIN}/api?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`,
-      `${VERCEL_DOMAIN}/api/index?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`
-    ];
+    if (isFetching) return;
+    isFetching = true;
 
-    for (let url of endpoints) {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) continue;
+    try {
+      const response = await fetch(`/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
+        headers: { 'Accept': 'application/json' }
+      });
 
-        const data = await response.json();
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        if (data && Array.isArray(data.ac)) {
-          aircraftList = data.ac.map(plane => ({
-            callsign: (plane.flight || plane.r || "UNK").trim(),
-            model: (plane.t || "AC").trim().toUpperCase(),
-            longitude: plane.lon,
-            latitude: plane.lat,
-            altitudeFt: plane.alt_baro || plane.alt_geom || 0,
-            speedKts: Math.round(plane.gs || 0),
-            heading: plane.track || 0
-          })).filter(p => p.latitude != null && p.longitude != null);
+      const data = await response.json();
 
-          break;
-        }
-      } catch (err) {
-        // Silently handle fetch failures without showing overlay UI
+      if (data && Array.isArray(data.ac)) {
+        const now = Date.now();
+
+        data.ac.forEach(plane => {
+          if (plane.latitude == null || plane.longitude == null) return;
+          const hex = plane.hex || plane.callsign;
+
+          const targetPos = gpsToCanvas(plane.latitude, plane.longitude);
+
+          if (trackedAircraft.has(hex)) {
+            const existing = trackedAircraft.get(hex);
+            existing.targetX = targetPos.x;
+            existing.targetY = targetPos.y;
+            existing.targetHeading = plane.heading || existing.targetHeading || 0;
+            existing.distKm = targetPos.distKm;
+            existing.bearingDeg = targetPos.bearingDeg;
+            existing.speedKts = plane.speedKts;
+            existing.altitudeFt = plane.altitudeFt;
+            existing.model = plane.model;
+            existing.callsign = plane.callsign;
+            existing.squawk = plane.squawk;
+            existing.verticalRate = plane.verticalRate;
+            existing.lastSeen = now;
+            existing.latitude = plane.latitude;
+            existing.longitude = plane.longitude;
+
+            // Add history breadcrumb if plane moved
+            const lastHist = existing.history[existing.history.length - 1];
+            if (!lastHist || Math.hypot(lastHist.x - targetPos.x, lastHist.y - targetPos.y) > 3) {
+              existing.history.push({ x: targetPos.x, y: targetPos.y, time: now });
+              if (existing.history.length > 10) existing.history.shift();
+            }
+          } else {
+            trackedAircraft.set(hex, {
+              hex,
+              callsign: plane.callsign,
+              model: plane.model,
+              latitude: plane.latitude,
+              longitude: plane.longitude,
+              currX: targetPos.x,
+              currY: targetPos.y,
+              targetX: targetPos.x,
+              targetY: targetPos.y,
+              currHeading: plane.heading || 0,
+              targetHeading: plane.heading || 0,
+              altitudeFt: plane.altitudeFt,
+              speedKts: plane.speedKts,
+              squawk: plane.squawk,
+              verticalRate: plane.verticalRate,
+              distKm: targetPos.distKm,
+              bearingDeg: targetPos.bearingDeg,
+              lastSeen: now,
+              blipIntensity: 0.7,
+              history: [{ x: targetPos.x, y: targetPos.y, time: now }]
+            });
+          }
+        });
+
+        // Prune stale contacts
+        trackedAircraft.forEach((plane, hex) => {
+          if (now - plane.lastSeen > 20000) {
+            trackedAircraft.delete(hex);
+          }
+        });
       }
+    } catch (err) {
+      // Quiet failover
+    } finally {
+      isFetching = false;
     }
   }
 
-  function drawPlaneSilhouette(ctx, x, y, heading) {
+  // Draw Aesthetic Radar Scope Geometry
+  function drawRadarGrid() {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((heading * Math.PI) / 180);
+    ctx.strokeStyle = config.color;
+    ctx.lineWidth = 1;
 
+    // Concentric Range Rings (4 rings)
+    for (let i = 1; i <= 4; i++) {
+      const r = maxRadiusPixel * (i / 4);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+      ctx.globalAlpha = (i === 4) ? 0.45 : 0.18;
+      ctx.stroke();
+
+      // Range Labels on vertical axis
+      const ringKm = (config.radiusKm * (i / 4)).toFixed(0);
+      ctx.fillStyle = config.color;
+      ctx.globalAlpha = 0.55;
+      ctx.font = '9px monospace';
+      ctx.fillText(`${ringKm}KM`, centerX + 6, centerY - r + 11);
+    }
+
+    // Radial Azimuth Spoke Lines (every 30 degrees)
+    for (let deg = 0; deg < 360; deg += 30) {
+      const rad = (deg * Math.PI) / 180;
+      const isCard = (deg % 90 === 0);
+
+      ctx.beginPath();
+      const startR = isCard ? 0 : maxRadiusPixel * 0.20;
+      ctx.moveTo(centerX + Math.cos(rad) * startR, centerY + Math.sin(rad) * startR);
+      ctx.lineTo(centerX + Math.cos(rad) * maxRadiusPixel, centerY + Math.sin(rad) * maxRadiusPixel);
+      ctx.globalAlpha = isCard ? 0.35 : 0.10;
+      ctx.stroke();
+
+      if (!isCard) {
+        ctx.fillStyle = config.color;
+        ctx.globalAlpha = 0.4;
+        ctx.font = '8px monospace';
+        const labelR = maxRadiusPixel + 12;
+        const textX = centerX + Math.cos(rad) * labelR;
+        const textY = centerY + Math.sin(rad) * labelR + 3;
+        ctx.textAlign = 'center';
+        ctx.fillText(`${deg}°`, textX, textY);
+      }
+    }
+
+    // Cardinal Points (N, S, E, W)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px monospace';
     ctx.fillStyle = config.color;
+    ctx.globalAlpha = 0.85;
 
+    ctx.fillText('N', centerX, centerY - maxRadiusPixel - 12);
+    ctx.fillText('S', centerX, centerY + maxRadiusPixel + 12);
+    ctx.fillText('E', centerX + maxRadiusPixel + 15, centerY);
+    ctx.fillText('W', centerX - maxRadiusPixel - 15, centerY);
+
+    // Center Origin Point
+    ctx.globalAlpha = 0.75;
     ctx.beginPath();
-    ctx.moveTo(0, -12); ctx.lineTo(1.5, -5); ctx.lineTo(10, 2);
-    ctx.lineTo(10, 4.5); ctx.lineTo(1.5, 2); ctx.lineTo(1.5, 9);
-    ctx.lineTo(4.5, 12); ctx.lineTo(4.5, 13.5); ctx.lineTo(0, 12);
-    ctx.lineTo(-4.5, 13.5); ctx.lineTo(-4.5, 12); ctx.lineTo(-1.5, 9);
-    ctx.lineTo(-1.5, 2); ctx.lineTo(-10, 4.5); ctx.lineTo(-10, 2);
-    ctx.lineTo(-1.5, -5); ctx.closePath();
+    ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
   }
 
-  function drawRadarGrid() {
-    ctx.strokeStyle = config.color;
-    ctx.globalAlpha = 0.35;
-    ctx.lineWidth = 1;
+  // Draw Sweeping Radar Beam with Phosphor Gradient Fan
+  function drawSweep() {
+    ctx.save();
 
-    for (let i = 1; i <= 4; i++) {
-      const r = maxRadiusPixel * (i / 4);
+    sweepAngle += SWEEP_SPEED;
+    if (sweepAngle >= Math.PI * 2) sweepAngle -= Math.PI * 2;
+
+    const trailSpan = 0.48; // ~28 degrees phosphor fan
+    const sweepSegments = 20;
+
+    for (let i = 0; i < sweepSegments; i++) {
+      const factor = i / sweepSegments;
+      const angleA = sweepAngle - (1 - factor) * trailSpan;
+      const angleB = sweepAngle - (1 - (i + 1) / sweepSegments) * trailSpan;
+
       ctx.beginPath();
-      ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, maxRadiusPixel, angleA, angleB);
+      ctx.closePath();
 
       ctx.fillStyle = config.color;
-      ctx.globalAlpha = 0.7;
-      ctx.font = '10px monospace';
-      ctx.fillText(`${(config.radiusKm * (i / 4)).toFixed(0)} KM`, centerX + 6, centerY - r + 12);
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = factor * factor * 0.12;
+      ctx.fill();
     }
 
-    ctx.beginPath();
-    ctx.moveTo(centerX - maxRadiusPixel, centerY); ctx.lineTo(centerX + maxRadiusPixel, centerY);
-    ctx.moveTo(centerX, centerY - maxRadiusPixel); ctx.lineTo(centerX, centerY + maxRadiusPixel);
-    ctx.stroke();
-
-    ctx.globalAlpha = 1.0;
-    ctx.fillStyle = config.color;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText('N', centerX - 4, centerY - maxRadiusPixel - 8);
-    ctx.fillText('S', centerX - 4, centerY + maxRadiusPixel + 16);
-    ctx.fillText('E', centerX + maxRadiusPixel + 8, centerY + 4);
-    ctx.fillText('W', centerX - maxRadiusPixel - 20, centerY + 4);
-  }
-
-  function drawSweep() {
-    sweepAngle += 0.015;
-    if (sweepAngle >= Math.PI * 2) sweepAngle = 0;
-
+    // Primary Scanning Ray
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
-    ctx.lineTo(centerX + Math.cos(sweepAngle) * maxRadiusPixel, centerY + Math.sin(sweepAngle) * maxRadiusPixel);
+    ctx.lineTo(
+      centerX + Math.cos(sweepAngle) * maxRadiusPixel,
+      centerY + Math.sin(sweepAngle) * maxRadiusPixel
+    );
     ctx.strokeStyle = config.color;
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    ctx.restore();
   }
 
+  // Draw Aerodynamic Aircraft Icon
+  function drawPlaneIcon(x, y, heading) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Rotate for Plane Direction
+    ctx.rotate((heading * Math.PI) / 180);
+    ctx.fillStyle = config.color;
+
+    // Aircraft Silhouette
+    ctx.beginPath();
+    ctx.moveTo(0, -9);
+    ctx.lineTo(1.2, -3);
+    ctx.lineTo(8, 1.5);
+    ctx.lineTo(8, 3);
+    ctx.lineTo(1.2, 1);
+    ctx.lineTo(1.2, 6.5);
+    ctx.lineTo(3.5, 9);
+    ctx.lineTo(3.5, 10);
+    ctx.lineTo(0, 9);
+    ctx.lineTo(-3.5, 10);
+    ctx.lineTo(-3.5, 9);
+    ctx.lineTo(-1.2, 6.5);
+    ctx.lineTo(-1.2, 1);
+    ctx.lineTo(-8, 3);
+    ctx.lineTo(-8, 1.5);
+    ctx.lineTo(-1.2, -3);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Draw Aircraft on Canvas with model, flight number, altitude, and speed labels
   function drawAircraft() {
-    aircraftList.forEach(plane => {
-      const pos = gpsToCanvas(plane.latitude, plane.longitude);
+    const LERP_FACTOR = 0.08;
 
-      if (pos.distKm <= config.radiusKm) {
-        drawPlaneSilhouette(ctx, pos.x, pos.y, plane.heading);
+    trackedAircraft.forEach((plane) => {
+      // Smooth interpolation
+      plane.currX = lerp(plane.currX, plane.targetX, LERP_FACTOR);
+      plane.currY = lerp(plane.currY, plane.targetY, LERP_FACTOR);
+      plane.currHeading = lerpAngle(plane.currHeading, plane.targetHeading, LERP_FACTOR);
 
-        const labelX = pos.x + 14;
-        const labelY = pos.y - 6;
+      const dx = plane.currX - centerX;
+      const dy = plane.currY - centerY;
+      const pixelDist = Math.hypot(dx, dy);
 
-        ctx.globalAlpha = 1.0;
+      if (pixelDist <= maxRadiusPixel + 10) {
+        // Phosphor sweep illumination
+        const planeAngle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+        let angleDiff = sweepAngle - planeAngle;
+        if (angleDiff < 0) angleDiff += Math.PI * 2;
+
+        if (angleDiff < 0.2) {
+          plane.blipIntensity = 1.0;
+        } else {
+          plane.blipIntensity = Math.max(0.65, plane.blipIntensity - 0.003);
+        }
+
+        // Historical Path Trail (Clean Dots)
+        if (config.showTrails && plane.history && plane.history.length > 1) {
+          ctx.save();
+          ctx.fillStyle = config.color;
+          for (let i = 0; i < plane.history.length - 1; i++) {
+            const hist = plane.history[i];
+            const trailAlpha = (i + 1) / plane.history.length * 0.22;
+            ctx.globalAlpha = trailAlpha;
+            ctx.beginPath();
+            ctx.arc(hist.x, hist.y, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Draw Plane Icon
+        ctx.save();
+        ctx.globalAlpha = plane.blipIntensity;
+        drawPlaneIcon(plane.currX, plane.currY, plane.currHeading);
+
+        // Aircraft In-Situ Data Tag
+        const labelX = plane.currX + 13;
+        const labelY = plane.currY - 7;
+        const vSymbol = plane.verticalRate > 250 ? ' ▲' : plane.verticalRate < -250 ? ' ▼' : '';
+        const altText = `${Math.round(plane.altitudeFt).toLocaleString()}FT${vSymbol}`;
+        const speedText = `${plane.speedKts}KT`;
+        const flightNum = plane.callsign || 'UNK';
+        const modelName = plane.model || 'AC';
+
+        // Flight Number & Model
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 10px monospace';
         ctx.fillStyle = config.color;
-        ctx.font = 'bold 11px monospace';
-        ctx.fillText(`${plane.callsign} [${plane.model}]`, labelX, labelY);
+        ctx.globalAlpha = Math.min(0.95, plane.blipIntensity);
+        ctx.fillText(`${flightNum} [${modelName}]`, labelX, labelY);
 
-        ctx.globalAlpha = 0.8;
-        ctx.font = '10px monospace';
-        ctx.fillText(`ALT: ${plane.altitudeFt}FT | ${plane.speedKts}KTS`, labelX, labelY + 12);
-        ctx.globalAlpha = 1.0;
+        // Altitude & Speed
+        ctx.font = '9px monospace';
+        ctx.globalAlpha = Math.min(0.80, plane.blipIntensity);
+        ctx.fillText(`${altText} | ${speedText}`, labelX, labelY + 11);
+
+        ctx.restore();
       }
     });
   }
 
+  // 60FPS Render Loop
   function render() {
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
+    ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+    // Deep Radar Dark Canvas
+    ctx.fillStyle = '#030605';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
 
     drawRadarGrid();
     drawSweep();
@@ -187,19 +485,31 @@
     requestAnimationFrame(render);
   }
 
+  // Initial Fetch & Regular 2.5s Polling
   fetchAircraft();
-  setInterval(fetchAircraft, API_INTERVAL_MS);
-  render();
+  setInterval(fetchAircraft, 2500);
+  requestAnimationFrame(render);
 
+  // Lively Wallpaper Native Property Listener
   window.livelyPropertyListener = function(name, val) {
     switch (name) {
-      case "lat": config.lat = parseFloat(val) || config.lat; break;
-      case "lon": config.lon = parseFloat(val) || config.lon; break;
-      case "radius": config.radiusKm = parseInt(val) || config.radiusKm; break;
-      case "themeColor": config.color = val; break;
+      case "lat": 
+        config.lat = parseFloat(val) || config.lat; 
+        break;
+      case "lon": 
+        config.lon = parseFloat(val) || config.lon; 
+        break;
+      case "radius": 
+        config.radiusKm = parseInt(val) || config.radiusKm; 
+        break;
+      case "themeColor": 
+        applyTheme(val); 
+        break;
     }
+    resize();
     fetchAircraft();
   };
 </script>
+
 </body>
 </html>

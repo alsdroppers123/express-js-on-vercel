@@ -1,0 +1,6 @@
+{
+  "name": "Airspace Radar",
+  "description": "Real-time radar visualization of airspace aircraft using ADS-B flight tracking data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
