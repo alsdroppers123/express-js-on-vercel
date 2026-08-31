@@ -61,6 +61,7 @@
 
   async function fetchAircraft() {
     const endpoints = [
+      `${VERCEL_DOMAIN}/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`,
       `${VERCEL_DOMAIN}/api?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`,
       `${VERCEL_DOMAIN}/api/index?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`
     ];
@@ -90,7 +91,7 @@
           break;
         }
       } catch (err) {
-        // Suppress uncaught network error to keep canvas rendering
+        // Continue checking fallback routes
       }
     }
 
