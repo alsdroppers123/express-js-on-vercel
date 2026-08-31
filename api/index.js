@@ -1,24 +1,20 @@
-module.exports = async (req, res) => {
-  // Set CORS headers
+const express = require('express');
+const app = express();
+
+// Global CORS Middleware
+app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  next();
+});
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Safely parse query parameters from URL
-  const host = req.headers.host || 'localhost';
-  const protocol = req.headers['x-forwarded-proto'] || 'https';
-  const reqUrl = new URL(req.url, `${protocol}://${host}`);
-
-  const lat = reqUrl.searchParams.get('lat') || '27.7218';
-  const lon = reqUrl.searchParams.get('lon') || '85.3124';
-  const radius = reqUrl.searchParams.get('radius') || '50';
+const handlePlaneRequest = async (req, res) => {
+  const { lat = '27.7218', lon = '85.3124', radius = '50' } = req.query;
 
   try {
-    // Convert KM to Nautical Miles (NM)
+    // Convert radius from KM to Nautical Miles (NM) for adsb.lol
     const radiusNm = Math.round(parseFloat(radius) * 0.539957) || 30;
     const apiUrl = `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${radiusNm}`;
 
@@ -44,3 +40,10 @@ module.exports = async (req, res) => {
     return res.status(200).json({ ac: [], error: err.message });
   }
 };
+
+// Bind all possible route aliases so Express never returns 404
+app.get('/api/planes', handlePlaneRequest);
+app.get('/api/index', handlePlaneRequest);
+app.get('/api', handlePlaneRequest);
+
+module.exports = app;
