@@ -1,5 +1,6 @@
 const express = require('express');
 const app = express();
+const airportsDatabase = require('./airports-data');
 
 // Global CORS Middleware
 app.use((req, res, next) => {
@@ -203,7 +204,34 @@ const handlePlaneRequest = async (req, res) => {
   });
 };
 
+const handleAirportsRequest = (req, res) => {
+  const latParam = parseFloat(req.query.lat) || 51.5147;
+  const lonParam = parseFloat(req.query.lon) || -0.1284;
+  const radiusKm = Math.min(Math.max(parseFloat(req.query.radius) || 50, 5), 500);
+
+  const latRad = (latParam * Math.PI) / 180;
+
+  const nearby = airportsDatabase.map(airport => {
+    const deltaY_km = (airport.lat - latParam) * 111.132;
+    const deltaX_km = (airport.lon - lonParam) * (111.320 * Math.cos(latRad));
+    const distKm = Math.hypot(deltaX_km, deltaY_km);
+    return {
+      ...airport,
+      distKm
+    };
+  }).filter(a => a.distKm <= radiusKm * 1.05);
+
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  return res.status(200).json({
+    airports: nearby,
+    total: nearby.length,
+    center: { lat: latParam, lon: lonParam },
+    radiusKm
+  });
+};
+
 // Bind all possible route aliases so Express never returns 404
+app.get('/api/airports', handleAirportsRequest);
 app.get('/api/planes', handlePlaneRequest);
 app.get('/api/index', handlePlaneRequest);
 app.get('/api', handlePlaneRequest);

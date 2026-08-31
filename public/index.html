@@ -94,11 +94,13 @@
 
   // Aircraft Map for Smooth Interpolation
   const trackedAircraft = new Map();
+  let nearbyAirports = [];
 
   // Sweep Animation Variables
   let sweepAngle = 0;
   const SWEEP_SPEED = 0.016; // smooth rotation speed
   let isFetching = false;
+  let isFetchingAirports = false;
 
   // Theme apply
   function applyTheme(hexColor) {
@@ -256,6 +258,108 @@
     } finally {
       isFetching = false;
     }
+  }
+
+  // Fetch Nearby Airports
+  async function fetchAirports() {
+    if (isFetchingAirports) return;
+    isFetchingAirports = true;
+
+    try {
+      const response = await fetch(`/api/airports?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const data = await response.json();
+      if (data && Array.isArray(data.airports)) {
+        nearbyAirports = data.airports.map(apt => {
+          const pos = gpsToCanvas(apt.lat, apt.lon);
+          return {
+            ...apt,
+            x: pos.x,
+            y: pos.y,
+            distKm: pos.distKm,
+            blipIntensity: 0.75
+          };
+        });
+      }
+    } catch (err) {
+      // Quiet failover
+    } finally {
+      isFetchingAirports = false;
+    }
+  }
+
+  // Draw Airport Symbols on Radar
+  function drawAirports() {
+    if (!nearbyAirports || nearbyAirports.length === 0) return;
+
+    nearbyAirports.forEach(airport => {
+      const pos = gpsToCanvas(airport.lat, airport.lon);
+      const dx = pos.x - centerX;
+      const dy = pos.y - centerY;
+      const pixelDist = Math.hypot(dx, dy);
+
+      if (pixelDist <= maxRadiusPixel + 10) {
+        // Phosphor sweep illumination for airport beacon
+        const aptAngle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+        let angleDiff = sweepAngle - aptAngle;
+        if (angleDiff < 0) angleDiff += Math.PI * 2;
+
+        if (angleDiff < 0.2) {
+          airport.blipIntensity = 1.0;
+        } else {
+          airport.blipIntensity = Math.max(0.70, (airport.blipIntensity || 0.70) - 0.002);
+        }
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.globalAlpha = airport.blipIntensity;
+
+        // 1. Dual-Ring Airport Symbol with 4-way Cross Ticks
+        ctx.strokeStyle = config.color;
+        ctx.lineWidth = 1.2;
+
+        // Outer Ring
+        ctx.beginPath();
+        ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner Circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = config.color;
+        ctx.fill();
+
+        // Cross Ticks (N, S, E, W marks on the airport symbol)
+        ctx.beginPath();
+        ctx.moveTo(0, -9.5); ctx.lineTo(0, -6.5);
+        ctx.moveTo(0, 6.5);  ctx.lineTo(0, 9.5);
+        ctx.moveTo(-9.5, 0); ctx.lineTo(-6.5, 0);
+        ctx.moveTo(6.5, 0);  ctx.lineTo(9.5, 0);
+        ctx.stroke();
+
+        // 2. Airport Label
+        const labelX = 12;
+        const labelY = -3;
+        ctx.textAlign = 'left';
+
+        // Primary ICAO / IATA Code & Name
+        ctx.font = 'bold 9.5px monospace';
+        ctx.fillStyle = config.color;
+        ctx.globalAlpha = Math.min(0.95, airport.blipIntensity);
+        ctx.fillText(`⊘ [${airport.iata}] ${airport.name}`, labelX, labelY);
+
+        // Subtitle ICAO & Distance
+        ctx.font = '8px monospace';
+        ctx.globalAlpha = Math.min(0.70, airport.blipIntensity);
+        ctx.fillText(`${airport.icao} • ${airport.distKm.toFixed(1)}KM`, labelX, labelY + 10);
+
+        ctx.restore();
+      }
+    });
   }
 
   // Draw Aesthetic Radar Scope Geometry
@@ -479,13 +583,15 @@
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
     drawRadarGrid();
+    drawAirports();
     drawSweep();
     drawAircraft();
 
     requestAnimationFrame(render);
   }
 
-  // Initial Fetch & Regular 2.5s Polling
+  // Initial Fetch & Regular Polling
+  fetchAirports();
   fetchAircraft();
   setInterval(fetchAircraft, 2500);
   requestAnimationFrame(render);
@@ -507,6 +613,7 @@
         break;
     }
     resize();
+    fetchAirports();
     fetchAircraft();
   };
 </script>
