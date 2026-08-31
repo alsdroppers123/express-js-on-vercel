@@ -13,10 +13,19 @@
 <canvas id="radar"></canvas>
 
 <script>
-  const HOME_LAT = 27.7218;
-  const HOME_LON = 85.3124;
-  const RADIUS_KM = 50;
+  // Configuration object used by Lively Wallpaper
+  let config = {
+    lat: 27.7218,
+    lon: 85.3124,
+    radiusKm: 50,
+    color: '#FFFFFF'
+  };
+
   const API_INTERVAL_MS = 2000;
+  
+  // Point to your live Vercel domain if running as a local file inside Lively
+  const VERCEL_DOMAIN = "https://your-app.vercel.app"; // REPLACE WITH YOUR ACTUAL VERCEL URL
+  const API_BASE = window.location.protocol === 'file:' ? VERCEL_DOMAIN : '';
 
   const canvas = document.getElementById('radar');
   const ctx = canvas.getContext('2d');
@@ -35,18 +44,15 @@
   window.addEventListener('resize', resize);
   resize();
 
- 
-
-
   function gpsToCanvas(lat, lon) {
-    const latRad = HOME_LAT * Math.PI / 180;
+    const latRad = config.lat * Math.PI / 180;
     const kmPerDegreeLat = 111.132;
     const kmPerDegreeLon = 111.320 * Math.cos(latRad);
 
-    const deltaY_km = (lat - HOME_LAT) * kmPerDegreeLat;
-    const deltaX_km = (lon - HOME_LON) * kmPerDegreeLon;
+    const deltaY_km = (lat - config.lat) * kmPerDegreeLat;
+    const deltaX_km = (lon - config.lon) * kmPerDegreeLon;
 
-    const scale = maxRadiusPixel / (RADIUS_KM || 1);
+    const scale = maxRadiusPixel / (config.radiusKm || 1);
     return {
       x: centerX + (deltaX_km * scale),
       y: centerY - (deltaY_km * scale),
@@ -56,7 +62,8 @@
 
   async function fetchAircraft() {
     try {
-      const response = await fetch('/api/planes');
+      const url = `${API_BASE}/api/planes?lat=${config.lat}&lon=${config.lon}&radius=${config.radiusKm}`;
+      const response = await fetch(url);
       if (!response.ok) return;
       const data = await response.json();
 
@@ -88,8 +95,8 @@
   }
 
   function drawAircraftShape(ctx, category) {
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = config.color;
+    ctx.fillStyle = config.color;
     ctx.lineWidth = 1.5;
 
     if (category === 'WIDEBODY') {
@@ -131,7 +138,8 @@
   function drawRadarGrid() {
     if (maxRadiusPixel <= 0) return;
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.strokeStyle = config.color;
+    ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
 
     for (let i = 1; i <= 4; i++) {
@@ -140,9 +148,11 @@
       ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = config.color;
+      ctx.globalAlpha = 0.7;
       ctx.font = '10px monospace';
-      ctx.fillText(`${(RADIUS_KM * (i / 4)).toFixed(0)} KM`, centerX + 6, centerY - r + 12);
+      ctx.fillText(`${(config.radiusKm * (i / 4)).toFixed(0)} KM`, centerX + 6, centerY - r + 12);
+      ctx.globalAlpha = 0.35;
     }
 
     ctx.beginPath();
@@ -150,7 +160,8 @@
     ctx.moveTo(centerX, centerY - maxRadiusPixel); ctx.lineTo(centerX, centerY + maxRadiusPixel);
     ctx.stroke();
 
-    ctx.fillStyle = '#FFFFFF';
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = config.color;
     ctx.beginPath();
     ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -176,7 +187,8 @@
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.lineTo(sweepX, sweepY);
-    ctx.strokeStyle = '#FFFFFF';
+    ctx.strokeStyle = config.color;
+    ctx.globalAlpha = 1.0;
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -187,7 +199,7 @@
     aircraftList.forEach(plane => {
       const pos = gpsToCanvas(plane.latitude, plane.longitude);
 
-      if (pos.distKm <= RADIUS_KM) {
+      if (pos.distKm <= config.radiusKm) {
         const category = getAircraftCategory(plane.model);
 
         ctx.save();
@@ -199,13 +211,15 @@
         const labelX = pos.x + 14;
         const labelY = pos.y - 6;
 
-        ctx.fillStyle = '#FFFFFF';
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = config.color;
         ctx.font = 'bold 11px monospace';
         ctx.fillText(`${plane.callsign} [${plane.model}]`, labelX, labelY);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.globalAlpha = 0.8;
         ctx.font = '10px monospace';
         ctx.fillText(`ALT: ${plane.altitudeFt}FT | ${plane.speedKts}KTS`, labelX, labelY + 12);
+        ctx.globalAlpha = 1.0;
       }
     });
   }
@@ -230,24 +244,23 @@
   render();
 
   // Lively Wallpaper Native Property Listener
-function livelyPropertyListener(name, val) {
-  switch (name) {
-    case "lat":
-      config.lat = parseFloat(val) || config.lat;
-      break;
-    case "lon":
-      config.lon = parseFloat(val) || config.lon;
-      break;
-    case "radius":
-      config.radiusKm = parseInt(val) || config.radiusKm;
-      break;
-    case "themeColor":
-      config.color = val;
-      break;
-  }
-  // Immediately refresh radar data with new coordinates/settings
-  fetchAircraft();
-}
+  window.livelyPropertyListener = function(name, val) {
+    switch (name) {
+      case "lat":
+        config.lat = parseFloat(val) || config.lat;
+        break;
+      case "lon":
+        config.lon = parseFloat(val) || config.lon;
+        break;
+      case "radius":
+        config.radiusKm = parseInt(val) || config.radiusKm;
+        break;
+      case "themeColor":
+        config.color = val;
+        break;
+    }
+    fetchAircraft();
+  };
 </script>
 </body>
 </html>
